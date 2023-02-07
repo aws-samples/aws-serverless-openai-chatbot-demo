@@ -54,7 +54,7 @@ We will create 3 Amazon Lambda functions, that means we will make 3 .zip files (
 3. For ***/chat*** route, we need to attach lambda authorizer and integrate to the openchat lambda function.  
 -- Create a lambda authorizer and attach it to ***/chat***. In lambda function field, select the ***"chat-authorizer"*** that you have created above.
 ![lambdaauth](assets/lambdaauth.png)
--- Create and attach an integration. In lambda function field, select the ***"openai-chat"*** that you have created above.
+-- Create and attach an integration. In lambda function field, select the ***"openai-chat"*** that you have created above.  
 4 For ***/login*** route, we need to integrate to the lambda function created for login. In lambda function field, select the ***"openai-login"*** that you have created above.  
 5 Set the CORS configuration as below:  
 ![cors](assets/cors.png)
@@ -68,8 +68,7 @@ We use Amazon DynamoDB to store username and password credentials. To simplify t
 
 
 ## Host website in S3
-> Reference: https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html
-When you configure a bucket as a static website, you must enable static website hosting, configure an index document, and set permissions.
+When you configure a bucket as a static website, you must enable static website hosting, configure an index document, and set permissions. You can read detail from **[AWS doc Reference](https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html)**.  
 1. Create an S3 bucket named ***bucket-name*** on Amazon S3 console.  
 2. Enable static website hosting of this bucket. In Index document, enter the file name of the index document,> index.html.  
 3. By default, the S3 bucket blocks public access. You need to change the setting by unchecking the option in the "Permssions" tab of the bucket detail page.  
