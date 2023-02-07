@@ -1,0 +1,15 @@
+aws --profile jp_admin dynamodb create-table \
+    --table-name chat_user_info \
+    --attribute-definitions \
+        AttributeName=username,AttributeType=S \
+    --key-schema \
+        AttributeName=username,KeyType=HASH \
+    --provisioned-throughput \
+        ReadCapacityUnits=5,WriteCapacityUnits=5 \
+    --table-class STANDARD
+
+
+aws --profile jp_admin dynamodb put-item \
+    --table-name chat_user_info \
+    --item \
+     '{"username":{"S":"river"},"password":{"S":"12345600"}}'
