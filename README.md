@@ -73,22 +73,22 @@ When you configure a bucket as a static website, you must enable static website 
 2. Enable static website hosting of this bucket. In Index document, enter the file name of the index document,> index.html.  
 3. By default, the S3 bucket blocks public access. You need to change the setting by unchecking the option in the "Permssions" tab of the bucket detail page.  
 4.  Add the below policy to the bucket policy to allow public access.  
-    {
+    `{
         "Version": "2012-10-17",
         "Statement": [
             {
                 "Sid": "PublicReadGetObject",
                 "Effect": "Allow",
-                "Principal": "*",
+                "Principal": "\*",
                 "Action": [
                    "s3:GetObject"
                 ],
                 "Resource": [
-                "arn:aws:s3:::bucket-name/*"
+                "arn:aws:s3:::bucket-name/\*"
                 ]
             }
         ]
-    }
+    }`
 5.  Then your Amazon S3 website follows one of these two formats:                                  
 - http://bucket-name.s3-website-Region.amazonaws.com 
 - http://bucket-name.s3-website.Region.amazonaws.com
