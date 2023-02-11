@@ -103,6 +103,8 @@ When you configure a bucket as a static website, you must enable static website 
 `>aws s3 sync ./build/ s3://bucket-name/
 4. After all steps are done, now you can visit the s3 website endpiont in your PC/Mobile browser, and login the page with your username and password you stored in the DynamoDB table.
 ![UI](assets/UIdemo.png). 
+5. You can change your model settings in the menu  
+![Settings](assets/model_settings.png). 
 
 ## Security
 
