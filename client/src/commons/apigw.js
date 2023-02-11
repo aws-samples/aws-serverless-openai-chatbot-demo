@@ -3,7 +3,8 @@
 
 
 //Change to your own API Gateway endpoint
-const API_endpoint = 'https://xxxx.amazonaws.com/';
+//Tips: don't miss the slash when you replace the endpoint url, or it will cause the bad request
+const API_endpoint = 'https://xxxx.amazonaws.com'+'/';
 export const getAnswer = async(respid,text,headers) =>{
     const options ={
         method:'POST',
