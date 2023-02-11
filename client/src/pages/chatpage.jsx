@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import React, { useState, useRef, useEffect } from "react";
-import { TopNavHeader } from "./components";
+import { TopNavHeader,modelParamsCtx,useModelParams,defaultModelParams } from "./components";
 import {  lightGreen, grey } from "@mui/material/colors";
 import IconButton from '@mui/material/IconButton';
 import SendIcon from '@mui/icons-material/Send';
@@ -19,7 +19,6 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { Formik, Form, useFormik } from "formik";
 import { useAuthorizedHeader } from "../commons/use-auth";
 import { useLocalStorage } from "../commons/localStorage";
-
 
 function generateUniqueId(){
   const timestamp = Date.now();
@@ -143,7 +142,8 @@ const InputSection = ({ setmsgItems,setLoading }) => {
   const [local_stored_crediential,] = useLocalStorage('chat-login-token',null)
   const username = local_stored_crediential.username;
   const [conversations,setConversations] = useState([]);
-//   console.log(conversations) ;
+  const modelParams = useModelParams();
+  // console.log(modelParams);
   const authheader = useAuthorizedHeader();
   const formik = useFormik({
     initialValues: {
@@ -164,7 +164,7 @@ const InputSection = ({ setmsgItems,setLoading }) => {
       const prompt = conversations.join(" ")+"\n\n"+values.prompt;
       formik.resetForm();
       setLoading(true);
-      getAnswer(respid,prompt,authheader)
+      getAnswer(respid,prompt,modelParams,authheader)
         .then(data => {
             // console.log(data);
             //save conversations
@@ -233,16 +233,17 @@ const InputSection = ({ setmsgItems,setLoading }) => {
 const ChatPage = () => {
   const [msgItems, setmsgItems] = useState([]);
   const [loading,setLoading] = useState(false);
- 
+  const [modelParams,setModelParams] = React.useState(defaultModelParams);
+
 
   return (
-
+    <modelParamsCtx.Provider value={modelParams}> 
     <Stack direction="column" spacing={2} sx={{pb:5}}>
-      <TopNavHeader />
+      <TopNavHeader setModelParams={setModelParams}/>
       <ChatBox  msgItems={msgItems}  loading={loading}/>
       <InputSection  setmsgItems={setmsgItems} setLoading={setLoading} />
     </Stack>
-
+    </modelParamsCtx.Provider>
   );
 };
 

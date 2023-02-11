@@ -103,7 +103,7 @@ const SignIn = () => {
               id="username"
               label="Username"
               name="username"
-              value ={username}
+              value ={username??''}
               onChange = {(event) => { setUsername(event.target.value);}}
               autoFocus
             />
@@ -117,7 +117,7 @@ const SignIn = () => {
               label="Password"
               type="password"
               id="password"
-              value ={password}
+              value ={password??''}
               onChange = {(event) => { setPassword(event.target.value);}}
               autoComplete="current-password"
             />

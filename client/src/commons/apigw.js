@@ -1,15 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-
 //Change to your own API Gateway endpoint
-const API_endpoint = 'https://xxxx.amazonaws.com/';
-export const getAnswer = async(respid,text,headers) =>{
+//Tips: don't miss the slash when you replace the endpoint url, or it will cause the bad request
+const API_endpoint = 'https://xxxxxxx.amazonaws.com'+'/';
+export const getAnswer = async(respid,text,model_params,headers) =>{
     const options ={
         method:'POST',
         // mode: 'no-cors',
         headers:headers,
-        body:JSON.stringify({id:respid,prompt:text})
+        body:JSON.stringify({id:respid,prompt:text,params:model_params})
     }
     try {
         var resp = await fetch(API_endpoint+'chat', options);
