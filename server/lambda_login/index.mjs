@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 
-const DEFAULT_REGION = "ap-northeast-1";
+// const DEFAULT_REGION = "ap-northeast-1";
 const TABLE_NAME = "chat_user_info";
 
 const createToken = (username) => {
@@ -36,10 +36,7 @@ const formatResponse = (code, errormsg, token) => {
 };
 
 const queryDynamoDb = async (key) => {
-  const client = new DynamoDBClient({
-    region: DEFAULT_REGION,
-    TableName: "chat",
-  });
+  const client = new DynamoDBClient();
   const params = {
     Key: { username: { S: key } },
     TableName: TABLE_NAME,
