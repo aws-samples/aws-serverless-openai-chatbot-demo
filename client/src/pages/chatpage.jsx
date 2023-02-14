@@ -57,10 +57,12 @@ function stringAvatar(name) {
 }
 
 const MsgItem = ({ who, text }) => {
+  let id = 0;
+  const newlines = text.split('\n').map(it=><span key={id++}>{it}<br/></span>);
   return who !== BOTNAME? (
     <ListItem sx={{ display: "flex", justifyContent: "flex-end" }}>
       <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-        <TextItem sx={{ bgcolor: lightGreen[400] }}> {text}</TextItem>
+        <TextItem sx={{ bgcolor: lightGreen[400] }}> {newlines}</TextItem>
         <Avatar {...stringAvatar(who)} />
       </Stack>
     </ListItem>
@@ -68,7 +70,7 @@ const MsgItem = ({ who, text }) => {
     <ListItem>
       <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
         <Avatar {...stringAvatar(who)} />
-        <TextItem> {text}</TextItem>
+        <TextItem> {newlines}</TextItem>
       </Stack>
     </ListItem>
   );
@@ -130,7 +132,7 @@ const ChatBox = ({ msgItems,loading }) => {
         overflow: 'auto',
         }}
   >
-  <MsgItem id={generateUniqueId()} who="AI" text ={"Welcome! Can I help you? \n 我还会中文以及其他999种语言"}/>
+  <MsgItem id={generateUniqueId()} who="AI" text ={"Welcome! Can I help you? 我还会中文以及其他999种语言"}/>
   {items}
   {loading? <MsgItem who={BOTNAME} text={loadingtext} />:<div/>}
   <ListItem ref={scrollRef} />
@@ -170,7 +172,7 @@ const InputSection = ({ setmsgItems,setLoading }) => {
             //save conversations
             setConversations(prev=>[...prev,data.bot]);
             setLoading(false);
-            setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text: data.bot}]
+            setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text: data.bot.trimStart()}]
             );
         }).catch(err =>{ 
             console.table(err);
