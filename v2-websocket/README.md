@@ -4,7 +4,7 @@
 - **Architecture change**  
 1. Add a WebSocket API Gateway, which is used to setup a long connection between client and backend.
 2. Decouple the chat function by using AWS SNS. Now OpenAI's API usually takes more than 30s to generate the response text, so that we cannot using HTTP API Gateway to trigger that function, because the HTTP API gateway has timeout limition of 30s.  
-![architecture-v2](assets/architecture-v2.png)
+![architecture-v2](../assets/architecture-v2.png)
 
 
 
@@ -41,20 +41,20 @@ The detail steps are the same as previous v1. **The only difference** is that it
 
 ### Create a WebSocket API gateway  
 1. Create a WebSocket API gateway from console  
-[wsapigw-1](assets/wsapigw-1.png)
+[wsapigw-1](../assets/wsapigw-1.png)
 2. Add route key ***$connect*** and ***sendprompt***  
-[wsapigw-2](assets/wsapigw-2.png)
+[wsapigw-2](../assets/wsapigw-2.png)
 3. Add integration to the lambdas accordingly
-[wsapigw-3](assets/wsapigw-3.png)
+[wsapigw-3](../assets/wsapigw-3.png)
 4. Get your WSS endpoint
-[wsapigw-4](assets/wsapigw-4.png)
+[wsapigw-4](../assets/wsapigw-4.png)
 
 
 ### Create SNS topic  
 1. Create a ***Standard*** SNS topic  
-[sns-1](assets/sns-1.png)
+[sns-1](../assets/sns-1.png)
 2. Create a subscription, choose lambda in policy field, and past your arn link of lambda_chat to the endpoint field.  
-[sns-2](assets/sns-2.png)
+[sns-2](../assets/sns-2.png)
 3. Copy the sns topic arn and paste to the environment variable's value of SNS_TOPIC_ARN of **lambda_handle_chat**
 
 ### Build the client
