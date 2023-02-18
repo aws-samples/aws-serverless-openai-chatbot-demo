@@ -15,7 +15,7 @@ export const getAnswer = async(respid,text,model_params,headers) =>{
         body:JSON.stringify({id:respid,prompt:text,params:model_params})
     }
     try {
-        var resp = await fetch(API_endpoint+'chat', options);
+        var resp = await fetch(API_http+'/chat', options);
        
         if (!resp.ok){
             const data = await resp.text();
