@@ -12,24 +12,24 @@
 ### Create Lambda functions
 We will create 4 lambda functions: (Code files are in four sub folers under v2/server/)
 The detail steps are the same as previous v1. please refer to v1 [README.md](README.md) . 
-1. **lambda_login**
+1. **lambda_login**  
 ***Tips:***  
 - This lambda is integrated with the ***/login*** route of HTTP API, and perform the user validation. 
 - The execution role of this lambda requires read permission of DynamoDB tables. You need to attach the **DynamodDB access policy** accordingly
 - Need to configure an environment variable named **TOKEN_KEY**.
 
-2. **lambda_connect_handle**
+2. **lambda_connect_handle**  
 ***Tips:***  
 - This lambda is integrated with the ***$connect*** route of WebSocket API, and perform the token authorization. 
 - Need to configure the same **TOKEN_KEY** environment variable as lambda_login.
 
-3. **lambda_handle_chat**
+3. **lambda_handle_chat**  
 ***Tips:***  
 - This lambda is integrated with the ***sendprompt*** route of WebSocket API, and send the connectionId and the prompt from user input to a SNS.
 - The execution role of this lambda requires SNS publish permission. You need to attach the SNS policy accordingly.
 - Need to configure an environment variable named **SNS_TOPIC_ARN**, and fill the arn of your SNS topic ( Creation steps will be guided in later)
 
-4. **lambda_chat** 
+4. **lambda_chat**  
 ***Tips:***  
 - This lambda is triggered by SNS, so it will subscribe SNS topic later.
 - It calls OpenAI API to get the response text, and send back the text via the WebSocket API Gateway, so it needs to be attached with the permission policy of **AmazonAPIGatewayInvokeFullAccess**. 
@@ -41,20 +41,20 @@ The detail steps are the same as previous v1. **The only difference** is that it
 
 ### Create a WebSocket API gateway  
 1. Create a WebSocket API gateway from console  
-[wsapigw-1](../assets/wsapigw-1.png)
+![wsapigw-1](../assets/wsapigw-1.png)
 2. Add route key ***$connect*** and ***sendprompt***  
-[wsapigw-2](../assets/wsapigw-2.png)
+![wsapigw-2](../assets/wsapigw-2.png)
 3. Add integration to the lambdas accordingly
-[wsapigw-3](../assets/wsapigw-3.png)
+![wsapigw-3](../assets/wsapigw-3.png)
 4. Get your WSS endpoint
-[wsapigw-4](../assets/wsapigw-4.png)
+![wsapigw-4](../assets/wsapigw-4.png)
 
 
 ### Create SNS topic  
 1. Create a ***Standard*** SNS topic  
-[sns-1](../assets/sns-1.png)
+![sns-1](../assets/sns-1.png)
 2. Create a subscription, choose lambda in policy field, and past your arn link of lambda_chat to the endpoint field.  
-[sns-2](../assets/sns-2.png)
+![sns-2](../assets/sns-2.png)
 3. Copy the sns topic arn and paste to the environment variable's value of SNS_TOPIC_ARN of **lambda_handle_chat**
 
 ### Build the client
