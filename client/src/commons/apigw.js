@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: MIT-0
 
 //Change to your own API Gateway endpoint
-//Tips: don't miss the slash when you replace the endpoint url, or it will cause the bad request
-const API_endpoint = 'https://xxxxxxx.amazonaws.com'+'/';
+const API_http = 'https://we6cynaffg.execute-api.ap-northeast-1.amazonaws.com';
 export const getAnswer = async(respid,text,model_params,headers) =>{
     const options ={
         method:'POST',
@@ -12,7 +11,7 @@ export const getAnswer = async(respid,text,model_params,headers) =>{
         body:JSON.stringify({id:respid,prompt:text,params:model_params})
     }
     try {
-        var resp = await fetch(API_endpoint+'chat', options);
+        var resp = await fetch(API_http+'/chat', options);
        
         if (!resp.ok){
             const data = await resp.text();
@@ -33,7 +32,7 @@ export const loginAuth = async(username,password) =>{
         body:JSON.stringify({username:username,password:password})
     }
     try {
-        var resp = await fetch(API_endpoint+'login', options);
+        var resp = await fetch(API_http+'/login', options);
         if (!resp.ok) {
             console.log('resp.ok');
             const data = await resp.json();

@@ -15,10 +15,11 @@ import {
   ListItem,
 } from "@mui/material";
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-
 import { Formik, Form, useFormik } from "formik";
 import { useAuthorizedHeader } from "../commons/use-auth";
 import { useLocalStorage } from "../commons/localStorage";
+import botlogo from "../ai-logo.svg";
+
 
 function generateUniqueId(){
   const timestamp = Date.now();
@@ -69,7 +70,7 @@ const MsgItem = ({ who, text }) => {
   ) : (
     <ListItem>
       <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-        <Avatar {...stringAvatar(who)} />
+        <Avatar src={botlogo} alt={'AIBot'}/>
         <TextItem> {newlines}</TextItem>
       </Stack>
     </ListItem>
@@ -106,10 +107,10 @@ const ChatBox = ({ msgItems,loading }) => {
             setLoaderTxt( v=> v+'.');
             textContent+='.';
             if (textContent.length > 5) {
-                setLoaderTxt('');
+                setLoaderTxt('.');
                 textContent='';
             }
-        }, 300);  
+        }, 500);  
       return ()=>{
         if (interval) clearInterval(interval);
       }
@@ -163,7 +164,7 @@ const InputSection = ({ setmsgItems,setLoading }) => {
 
       //save conversations
       setConversations((prev)=>[...prev,values.prompt]);
-      const prompt = conversations.join(" ")+"\n\n"+values.prompt;
+      const prompt = conversations.join(" ")+"\n"+values.prompt;
       formik.resetForm();
       setLoading(true);
       getAnswer(respid,prompt,modelParams,authheader)

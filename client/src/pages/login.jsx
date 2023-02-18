@@ -62,10 +62,16 @@ const SignIn = () => {
     event.preventDefault();
     const formdata = new FormData(event.currentTarget);
     auth.signin(formdata.get('username'),formdata.get('password'))
-    .then(()=>{
+    .then((data)=>{
+      // console.log(data);
       setLocalStoredCred({username:formdata.get('username'),
                     password:formdata.get('password'),
                    checked:checked});
+      if (!(data?data.isAuthorized:false)){
+        setErrorState(true);
+        setErrMsg(data.body.message);
+      }
+
     })
     .catch(error =>{ 
       setErrorState(true);
@@ -97,6 +103,7 @@ const SignIn = () => {
           {/* <FormControl> */}
             <TextField
               error = {errorstate}
+              // helperText ={errormsg}
               margin="normal"
               required
               fullWidth

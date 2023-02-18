@@ -21,6 +21,11 @@ export function useAuthUserInfo(){
     return auth;
   }
 
+export function useAuthToken(){
+  const auth = useAuth();
+  const token = auth.user?auth.user.body.token:'';
+  return {'token':'Bearer '+token}
+}
 export function useAuthorizedHeader(){
     const auth = useAuth();
     const token = auth.user?auth.user.body.token:'';

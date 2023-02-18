@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT-0
 
 import jwt from "jsonwebtoken";
-import bcryptjs from "bcryptjs";
+// import bcryptjs from "bcryptjs";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 
 // const DEFAULT_REGION = "ap-northeast-1";
