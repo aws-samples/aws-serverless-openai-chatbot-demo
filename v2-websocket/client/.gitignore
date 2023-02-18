@@ -7,12 +7,12 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-build
 node_modules
+build
 dist
 dist-ssr
 *.local
-*.zip
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

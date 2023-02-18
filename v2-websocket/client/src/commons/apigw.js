@@ -1,8 +1,12 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-//Change to your own API Gateway endpoint
-const API_http = 'https://we6cynaffg.execute-api.ap-northeast-1.amazonaws.com';
+//Change to your own WebSocket API Gateway endpoint
+//Change to your own HTTP API Gateway endpoint
+export const API_socket = 'wss://{apiid}.execute-api.{region}.amazonaws.com/dev';
+export const API_http = 'https://{apiid}.execute-api.{region}.amazonaws.com';
+
+
 export const getAnswer = async(respid,text,model_params,headers) =>{
     const options ={
         method:'POST',
@@ -11,7 +15,7 @@ export const getAnswer = async(respid,text,model_params,headers) =>{
         body:JSON.stringify({id:respid,prompt:text,params:model_params})
     }
     try {
-        var resp = await fetch(API_http+'/chat', options);
+        var resp = await fetch(API_endpoint+'chat', options);
        
         if (!resp.ok){
             const data = await resp.text();

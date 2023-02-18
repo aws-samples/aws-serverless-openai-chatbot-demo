@@ -63,7 +63,7 @@ const SignIn = () => {
     const formdata = new FormData(event.currentTarget);
     auth.signin(formdata.get('username'),formdata.get('password'))
     .then((data)=>{
-      // console.log(data);
+      console.log(data);
       setLocalStoredCred({username:formdata.get('username'),
                     password:formdata.get('password'),
                    checked:checked});

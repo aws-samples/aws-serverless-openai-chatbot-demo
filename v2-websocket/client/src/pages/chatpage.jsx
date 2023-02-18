@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: MIT-0
 import React, { useState, useRef, useEffect } from "react";
 import { TopNavHeader,modelParamsCtx,useModelParams,defaultModelParams } from "./components";
-import {  lightGreen, grey } from "@mui/material/colors";
+import {  lightGreen, grey, blue, green } from "@mui/material/colors";
 import IconButton from '@mui/material/IconButton';
 import SendIcon from '@mui/icons-material/Send';
-import {getAnswer} from '../commons/apigw';
 import {
   Box,
   Stack,
@@ -15,10 +14,12 @@ import {
   ListItem,
 } from "@mui/material";
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import useWebSocket from 'react-use-websocket';
 import { Formik, Form, useFormik } from "formik";
-import { useAuthorizedHeader } from "../commons/use-auth";
+import { useAuthToken } from "../commons/use-auth";
 import { useLocalStorage } from "../commons/localStorage";
 import botlogo from "../ai-logo.svg";
+import {API_socket} from "../commons/apigw";
 
 
 function generateUniqueId(){
@@ -122,7 +123,7 @@ const ChatBox = ({ msgItems,loading }) => {
     }
   }, [msgItems.length]);
   const items = msgItems.map((msg) => (
-    <MsgItem key={msg.id} who={msg.who} text={msg.text} />
+    <MsgItem key={generateUniqueId()} who={msg.who} text={msg.text} />
   ));
 
   return (
@@ -141,13 +142,15 @@ const ChatBox = ({ msgItems,loading }) => {
   );
 };
 
-const InputSection = ({ setmsgItems,setLoading }) => {
+
+
+const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,sendMessage }) => {
   const [local_stored_crediential,] = useLocalStorage('chat-login-token',null)
   const username = local_stored_crediential.username;
-  const [conversations,setConversations] = useState([]);
+  // const [conversations,setConversations] = useState([]);
   const modelParams = useModelParams();
   // console.log(modelParams);
-  const authheader = useAuthorizedHeader();
+  // const authheader = useAuthorizedHeader();
   const formik = useFormik({
     initialValues: {
       prompt: "",
@@ -165,22 +168,24 @@ const InputSection = ({ setmsgItems,setLoading }) => {
       //save conversations
       setConversations((prev)=>[...prev,values.prompt]);
       const prompt = conversations.join(" ")+"\n"+values.prompt;
+      // const prompt = values.prompt;
       formik.resetForm();
       setLoading(true);
-      getAnswer(respid,prompt,modelParams,authheader)
-        .then(data => {
-            // console.log(data);
-            //save conversations
-            setConversations(prev=>[...prev,data.bot]);
-            setLoading(false);
-            setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text: data.bot.trimStart()}]
-            );
-        }).catch(err =>{ 
-            console.table(err);
-            setLoading(false);　
-            setConversations([]);
-            setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text:'Ops! '+err.message}]);
-        })
+      sendMessage({action:"sendprompt",payload:{msgid:respid,prompt:prompt,params:modelParams}});
+
+      // getAnswer(respid,prompt,modelParams,authheader)
+      //   .then(data => {
+      //       //save conversations
+      //       setConversations(prev=>[...prev,data.bot]);
+      //       setLoading(false);
+      //       setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text: data.bot.trimStart()}]
+      //       );
+      //   }).catch(err =>{ 
+      //       console.table(err);
+      //       setLoading(false);　
+      //       setConversations([]);
+      //       setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text:'Ops! '+err.message}]);
+      //   })
     },
   });
 
@@ -233,18 +238,62 @@ const InputSection = ({ setmsgItems,setLoading }) => {
     </Formik>
   );
 };
+
+
 const ChatPage = () => {
   const [msgItems, setmsgItems] = useState([]);
   const [loading,setLoading] = useState(false);
-  const [modelParams,setModelParams] = React.useState(defaultModelParams);
+  const [modelParams,setModelParams] = useState(defaultModelParams);
+  const [conversations,setConversations] = useState([]);
 
+  const didUnmount = useRef(false);
+  const authtoken = useAuthToken();
+
+
+  const onMessageCallback =({data})=>{
+     //save conversations
+      const bot = JSON.parse(data)
+      setConversations(prev=>[...prev,bot.text]);
+      setLoading(false);
+      setmsgItems((prev) => [...prev,{ id: bot.msgid, who:BOTNAME, text: bot.text.trimStart()}]
+      );
+
+  }
+
+  // setup websocket
+  const {sendMessage,sendJsonMessage, getWebSocket, readyState} = useWebSocket(
+    API_socket,
+    {
+      queryParams:authtoken,
+      onOpen: () => console.log('socket opened'),
+      onMessage: onMessageCallback,
+
+      onClose: () => console.log('socket closed'),
+      onError: () => console.log('socket error'),
+      shouldReconnect: (closeEvent) => {
+        return didUnmount.current === false;
+      },
+      reconnectAttempts: 10,
+      reconnectInterval: 3000,
+    }
+  )
+  
+  useEffect(() => {
+    return () => {
+      didUnmount.current = true;
+    };
+  }, []);
 
   return (
     <modelParamsCtx.Provider value={modelParams}> 
     <Stack direction="column" spacing={2} sx={{pb:5}}>
       <TopNavHeader setModelParams={setModelParams}/>
       <ChatBox  msgItems={msgItems}  loading={loading}/>
-      <InputSection  setmsgItems={setmsgItems} setLoading={setLoading} />
+      <InputSection  setmsgItems={setmsgItems}
+                      conversations={conversations}
+                      setConversations={setConversations}
+                     setLoading={setLoading} 
+                     sendMessage={sendJsonMessage} />
     </Stack>
     </modelParamsCtx.Provider>
   );
