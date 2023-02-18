@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT-0
 
 //Change to your own API Gateway endpoint
-const API_http = 'https://we6cynaffg.execute-api.ap-northeast-1.amazonaws.com';
+const API_http = 'https://{api-id}.execute-api.{region}.amazonaws.com';
 export const getAnswer = async(respid,text,model_params,headers) =>{
     const options ={
         method:'POST',
