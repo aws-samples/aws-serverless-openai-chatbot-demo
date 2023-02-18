@@ -56,6 +56,7 @@ The detail steps are the same as previous v1. **The only difference** is that it
 2. Create a subscription, choose lambda in policy field, and past your arn link of lambda_chat to the endpoint field.  
 ![sns-2](../assets/sns-2.png)
 3. Copy the sns topic arn and paste to the environment variable's value of SNS_TOPIC_ARN of **lambda_handle_chat**
+![sns-3](../assets/sns-3.png)
 
 ### Build the client
 1. Change the API_http and API_socket in code [apigw.js](client/src/commons/apigw.js),  to your actual endpoints of HTTP API GW and WebSocket GW accordingly.
