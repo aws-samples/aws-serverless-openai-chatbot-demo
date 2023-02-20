@@ -12,6 +12,10 @@ This application is built on a totally serverless architecture:
 - The backend services are built on top of Amazon Lambda, which includes a function to authorize the request, a function to process user sign in, a function to handle chat requests from the client and revoke OpenAI SDK function to get the response text from the OpenAI server.
 - An Amazon DynamoDB table also needs to be created to store the username and credential to give some basic authorization of this application.
   ![Architecture](assets/architecture.png)
+
+- *** A new architecture add a WebSocket API and SNS topic subscription to decouple the remote call to OpenAI  from API gateway, thus to extend the 30s timeout limitation, and reduce 503 error. please refer to [v2-websocket](v2-websocket/README.md) ***   
+
+
 ## Prerequisites
 - You need to have an OpenAI account, and create an API key in the portal.
   ![openaikey](assets/openaikey.png)
