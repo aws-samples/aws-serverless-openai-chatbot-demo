@@ -13,7 +13,7 @@ This application is built on a totally serverless architecture:
 - An Amazon DynamoDB table also needs to be created to store the username and credential to give some basic authorization of this application.
   ![Architecture](assets/architecture.png)
 
-- *** A new architecture add a WebSocket API and SNS topic subscription to decouple the remote call to OpenAI  from API gateway, thus to extend the 30s timeout limitation, and reduce 503 error. please refer to [v2-websocket](v2-websocket/README.md) ***   
+### A new architecture add a WebSocket API and SNS topic subscription to decouple the remote call to OpenAI  from API gateway, thus to extend the 30s timeout limitation, and reduce 503 error. please refer to [v2-websocket](v2-websocket/README.md)    
 
 
 ## Prerequisites
