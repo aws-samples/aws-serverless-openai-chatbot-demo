@@ -14,7 +14,7 @@ This application is built on a totally serverless architecture:
   ![Architecture](assets/architecture.png)
 
 ### A new architecture adds a WebSocket API and SNS topic subscription to decouple the remote call to OpenAI  from API gateway, thus to extend the 30s timeout limitation, and reduce 503 error. please refer to [v2-websocket](v2-websocket/README.md)    
-
+![architecture-v2](assets/architecture-v2.png)
 
 ## Prerequisites
 - You need to have an OpenAI account, and create an API key in the portal.
