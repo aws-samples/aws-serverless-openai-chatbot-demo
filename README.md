@@ -84,12 +84,12 @@ When you configure a bucket as a static website, you must enable static website 
             {
                 "Sid": "PublicReadGetObject",
                 "Effect": "Allow",
-                "Principal": "\*",
+                "Principal": "*",
                 "Action": [
                    "s3:GetObject"
                 ],
                 "Resource": [
-                   "arn:aws:s3:::bucket-name/\*"
+                   "arn:aws:s3:::bucket-name/*"
                 ]
             }
         ]
