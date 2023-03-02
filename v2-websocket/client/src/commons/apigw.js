@@ -6,7 +6,6 @@
 export const API_socket = 'wss://{apiid}.execute-api.{region}.amazonaws.com/dev';
 export const API_http = 'https://{apiid}.execute-api.{region}.amazonaws.com';
 
-
 export const getAnswer = async(respid,text,model_params,headers) =>{
     const options ={
         method:'POST',
