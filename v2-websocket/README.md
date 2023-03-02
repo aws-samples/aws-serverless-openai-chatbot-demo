@@ -34,6 +34,7 @@ The detail steps are the same as previous v1. please refer to v1 [README.md](REA
 - This lambda is triggered by SNS, so it will subscribe SNS topic later.
 - It calls OpenAI API to get the response text, and send back the text via the WebSocket API Gateway, so it needs to be attached with the permission policy of **AmazonAPIGatewayInvokeFullAccess**. 
 - Change the lambda **timeout value**  to a bigger one, for example 5 mins.
+- Configure your own OpenAI API key in environment variables as key named **"OPENAI_API_KEY"**.
 
 
 ### Create a HTTP API gateway
