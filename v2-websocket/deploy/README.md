@@ -82,12 +82,12 @@ add test data use by aws cli, change {default} `~/.aws/credentials` , {login_dyn
 
 # https://docs.aws.amazon.com/cli/latest/reference/dynamodb/put-item.html
 aws --profile {default} dynamodb put-item \
-    --table-name {login_dynamodb_table}_{stage} \
+    --table-name {login_dynamodb_table} \
     --item '{"username":{"S":"root"},"password":{"S":"12345678"}}'
 # --transact-items
 
 # https://docs.aws.amazon.com/cli/latest/reference/dynamodb/get-item.html
-aws --profile {default} dynamodb get-item --table-name {login_dynamodb_table}_{stage}  --key '{"username": {"S": "root"}}'
+aws --profile {default} dynamodb get-item --table-name {login_dynamodb_table}  --key '{"username": {"S": "root"}}'
 
 # change you deploy {region} {stage} and api gw {id}
 curl -XPOST -H 'content-type: application/json' "https://{id}.execute-api.{region}.amazonaws.com/{stage}/login" -d '{"username":"root","password":"12345678"}'
