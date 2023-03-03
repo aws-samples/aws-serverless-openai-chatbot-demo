@@ -66,6 +66,7 @@ func main() {
 		ChatHandler:    chatHandler,
 	})
 
+	awscdk.Tags_Of(app).Add(jsii.String("stage"), jsii.String(stage), nil)
 	awscdk.Tags_Of(app).Add(jsii.String("version"), jsii.String("1.0.0"), nil)
 	awscdk.Tags_Of(app).Add(jsii.String("project"), jsii.String("serverless-openai-chatbot"), nil)
 	awscdk.Tags_Of(app).Add(jsii.String("role"), jsii.String("web developer"), nil)

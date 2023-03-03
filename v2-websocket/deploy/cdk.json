@@ -9,7 +9,6 @@
       "go.sum",
       "**/*test.go",
       ".venv",
-      "node_modules",
       "*.zip"
     ]
   },

@@ -33,11 +33,12 @@ func NewHttpLoginApiStack(scope constructs.Construct, id string, props *HttpLogi
 	stage := stack.Node().TryGetContext(jsii.String("stage")).(string)
 	login_lambda_code_absolute_dir := stack.Node().TryGetContext(jsii.String("login_lambda_code_absolute_dir")).(string)
 
-	loginTable := awsdynamodb.NewTable(stack, jsii.String(login_dynamodb_table), &awsdynamodb.TableProps{
+	loginTable := awsdynamodb.NewTable(stack, jsii.String("loginTable"), &awsdynamodb.TableProps{
 		PartitionKey:  &awsdynamodb.Attribute{Name: jsii.String("username"), Type: awsdynamodb.AttributeType_STRING},
 		RemovalPolicy: awscdk.RemovalPolicy_DESTROY,
 		Encryption:    awsdynamodb.TableEncryption_AWS_MANAGED,
-		TableName:     jsii.String(login_dynamodb_table + "_" + stage),
+		//TableName:     jsii.String(login_dynamodb_table + "_" + stage),
+		TableName: jsii.String(login_dynamodb_table),
 		//ReadCapacity:  jsii.Number(7),
 	})
 
@@ -46,28 +47,13 @@ func NewHttpLoginApiStack(scope constructs.Construct, id string, props *HttpLogi
 		Runtime: awslambda.Runtime_NODEJS_18_X(),
 		Handler: jsii.String("index.handler"),
 		Environment: &map[string]*string{
-			"TOKEN_KEY":       jsii.String(jwt_secret),
+			"TOKEN_KEY": jsii.String(jwt_secret),
+			// if want a dynamodb table in the diff region, don't care, just use in the same region for different stage table
 			"USER_TABLE_NAME": loginTable.TableName(),
 		},
 		FunctionName: jsii.String("chatbot-login-" + stage),
 		Description:  jsii.String("user login and authentication user information from dynamodb, ok return jwt for authorization"),
 	})
-
-	/*
-		loginHandler := awslambda.NewFunction(stack, jsii.String("loginHandler"), &awslambda.FunctionProps{
-			Handler: jsii.String("login.handler"),
-			Code: awslambda.Code_FromAsset(jsii.String("server/lambda/python/login"), &awss3assets.AssetOptions{
-				Bundling: &awscdk.BundlingOptions{
-					Image: awslambda.Runtime_PYTHON_3_9().BundlingImage(),
-					Command: &[]*string{
-						jsii.String("bash"),
-						jsii.String("-c"),
-						jsii.String("pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"),
-					},
-				},
-			}),
-		})
-	*/
 
 	loginTable.GrantReadWriteData(loginHandler)
 
