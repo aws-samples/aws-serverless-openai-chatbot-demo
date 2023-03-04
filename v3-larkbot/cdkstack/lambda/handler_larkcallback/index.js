@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import * as lark from '@larksuiteoapi/node-sdk';
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 

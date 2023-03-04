@@ -1,3 +1,5 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 import { Configuration, OpenAIApi } from "openai";
 import * as lark from '@larksuiteoapi/node-sdk';
 import { DynamoDBClient, GetItemCommand,PutItemCommand } from "@aws-sdk/client-dynamodb";
