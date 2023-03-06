@@ -21,6 +21,7 @@ import { useLocalStorage } from "../commons/localStorage";
 import botlogo from "../ai-logo.svg";
 import {API_socket} from "../commons/apigw";
 
+const MAX_CONVERSATIONS = 4;
 
 function generateUniqueId(){
   const timestamp = Date.now();
@@ -134,7 +135,7 @@ const ChatBox = ({ msgItems,loading }) => {
         overflow: 'auto',
         }}
   >
-  <MsgItem id={generateUniqueId()} who="AI" text ={"Welcome! Can I help you? 我还会中文以及其他999种语言"}/>
+  {/* <MsgItem id={generateUniqueId()} who="AI" text ={"Welcome! Can I help you? 我还会中文以及其他999种语言"}/> */}
   {items}
   {loading? <MsgItem who={BOTNAME} text={loadingtext} />:<div/>}
   <ListItem ref={scrollRef} />
@@ -166,26 +167,14 @@ const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,se
       ]);
 
       //save conversations
-      setConversations((prev)=>[...prev,values.prompt]);
-      const prompt = conversations.join(" ")+"\n"+values.prompt;
-      // const prompt = values.prompt;
+      // setConversations((prev)=>[...prev,values.prompt]);
+      // const prompt = conversations.join(" ")+"\n"+values.prompt;
+      setConversations((prev)=>[...prev,{role:'user',content:values.prompt}]);
+      const messages = [...conversations,{role:'user',content:values.prompt}];
       formik.resetForm();
       setLoading(true);
-      sendMessage({action:"sendprompt",payload:{msgid:respid,prompt:prompt,params:modelParams}});
+      sendMessage({action:"sendprompt",payload:{msgid:respid,messages:messages,params:modelParams}});
 
-      // getAnswer(respid,prompt,modelParams,authheader)
-      //   .then(data => {
-      //       //save conversations
-      //       setConversations(prev=>[...prev,data.bot]);
-      //       setLoading(false);
-      //       setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text: data.bot.trimStart()}]
-      //       );
-      //   }).catch(err =>{ 
-      //       console.table(err);
-      //       setLoading(false);　
-      //       setConversations([]);
-      //       setmsgItems((prev) => [...prev,{ id: generateUniqueId(), who:BOTNAME, text:'Ops! '+err.message}]);
-      //   })
     },
   });
 
@@ -216,6 +205,7 @@ const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,se
               onClick={()=>{
                 setConversations([]);
                 setmsgItems([]);
+                setLoading(false);
               }}
               >
           <RestartAltIcon size="medium"/>
@@ -252,12 +242,16 @@ const ChatPage = () => {
 
   const onMessageCallback =({data})=>{
      //save conversations
-      const bot = JSON.parse(data)
-      setConversations(prev=>[...prev,bot.text]);
-      setLoading(false);
-      setmsgItems((prev) => [...prev,{ id: bot.msgid, who:BOTNAME, text: bot.text.trimStart()}]
-      );
+      const resp = JSON.parse(data)
+      if(resp.text.role)setConversations(prev=>[...prev,resp.text]);
 
+      if(conversations.length > MAX_CONVERSATIONS){
+        setConversations(prev=> prev.slice(conversations.length-MAX_CONVERSATIONS,))
+      }
+      setLoading(false);
+      setmsgItems((prev) => [...prev,{ id: resp.msgid, who:BOTNAME, text: resp.text.content.trimStart()}]
+      );
+      // console.log(conversations);
   }
 
   // setup websocket
@@ -265,16 +259,24 @@ const ChatPage = () => {
     API_socket,
     {
       queryParams:authtoken,
-      onOpen: () => console.log('socket opened'),
+      onOpen: () => setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
+        who:BOTNAME, 
+        text:'Welcome! Can I help you? 我还会中文以及其他999种语言'}]),
       onMessage: onMessageCallback,
 
-      onClose: () => console.log('socket closed'),
-      onError: () => console.log('socket error'),
+      // onClose: () => console.log('socket closed'),
+      // onError: () => console.log('socket error'),
+      onClose: () => setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
+          who:BOTNAME,
+          text: 'Sorry something wrong, remote socket connection closed'}]),
+      onError: () => setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
+          who:BOTNAME, 
+          text:'Sorry something wrong, remote socket connection error'}]),
       shouldReconnect: (closeEvent) => {
         return didUnmount.current === false;
       },
-      reconnectAttempts: 10,
-      reconnectInterval: 3000,
+      reconnectAttempts: 100,
+      reconnectInterval: 5000,
     }
   )
   

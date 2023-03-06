@@ -1,0 +1,11 @@
+{
+  "stage": "test",
+  "login_dynamodb_table": "chat_user_info",
+  "sns_chat_openai_topic": "chatmessage",
+  "jwt_secret": "test_secret",
+  "openai_api_key": "",
+  "login_lambda_code_absolute_dir": "../server/lambda_login/",
+  "connect_lambda_code_absolute_dir": "../server/lambda_connect_handle/",
+  "chat_lambda_code_absolute_dir": "../server/lambda_handle_chat/",
+  "push_lambda_code_absolute_dir": "../server/lambda_chat/"
+}

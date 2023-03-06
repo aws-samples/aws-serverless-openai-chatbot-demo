@@ -15,7 +15,7 @@ import Divider from '@mui/material/Divider';
 import {Stack,FormControl,InputLabel,Select,MenuItem,Slider} from '@mui/material';
 
 const drawerWidth = 300;
-const models = ['text-davinci-003','code-davinci-002'];
+const models = ['gpt-3.5-turbo','gpt-3.5-turbo-0301'];//['text-davinci-003','code-davinci-002'];
 
 export const modelParamsCtx = React.createContext();
 export const useModelParams =()=>{
@@ -23,10 +23,9 @@ export const useModelParams =()=>{
 }
 
 export const defaultModelParams = {
-  frequency_penalty: 0.5,
-  max_tokens:2000,
-  presence_penalty: 0.1,
-  temperature:0 ,
+  frequency_penalty: 0,
+  max_tokens:4096,
+  presence_penalty: 0,
   top_p:1,
   model_name:models[0],
 }
@@ -101,16 +100,6 @@ const ToolBox =({toggleDrawer,setModelParams})=>{
         </Select>
       </FormControl>
       <CustSlider
-        defaultValue={defaultModelParams.temperature??0}
-        step={0.01}
-        min={0}
-        max={1}
-        label="Temperature"
-        name="temperature"
-        desc="Control randomness, lower values results in less randomess"
-        setModelParams={setModelParams}
-      />
-      <CustSlider
         defaultValue={defaultModelParams.max_tokens??2000}
         step={1}
         min={1}
@@ -133,7 +122,7 @@ const ToolBox =({toggleDrawer,setModelParams})=>{
       <CustSlider
         defaultValue={defaultModelParams.frequency_penalty??0}
         step={0.01}
-        min={0}
+        min={-2}
         max={2}
         name="frequency_penalty"
         label="Frequency Penalty"
@@ -143,7 +132,7 @@ const ToolBox =({toggleDrawer,setModelParams})=>{
       <CustSlider
         defaultValue={defaultModelParams.presence_penalty??0}
         step={0.01}
-        min={0}
+        min={-2}
         max={2}
         name="presence_penalty"
         label="Presence Penalty"
