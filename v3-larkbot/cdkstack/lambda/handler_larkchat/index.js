@@ -4,7 +4,7 @@ import { Configuration, OpenAIApi } from "openai";
 import * as lark from '@larksuiteoapi/node-sdk';
 import { DynamoDBClient, GetItemCommand,PutItemCommand } from "@aws-sdk/client-dynamodb";
 
-const MAX_SEQ=6;
+const MAX_SEQ=10;
 const dbclient = new DynamoDBClient();
 const start_command = process.env.START_CMD;
 
