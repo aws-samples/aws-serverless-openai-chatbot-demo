@@ -10,9 +10,6 @@ import {LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import * as dotenv from 'dotenv' 
 dotenv.config()
 
-
-console.log()
-// const sqs = require('aws-cdk-lib/aws-sqs');
 import { join } from 'path';
 export class CdkstackStack extends Stack {
   /**

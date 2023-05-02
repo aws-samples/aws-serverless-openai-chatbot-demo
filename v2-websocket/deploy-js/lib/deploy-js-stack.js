@@ -11,7 +11,8 @@ import {
   WebSocketLambdaIntegration,
 } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import * as apigwv2 from "@aws-cdk/aws-apigatewayv2-alpha";
-
+import { VpcStack } from './vpc-stack.js';
+import {OpenSearchStack} from './opensearch-stack.js';
 import * as dotenv from "dotenv";
 dotenv.config();
 
@@ -38,6 +39,10 @@ export class DeployJsStack extends Stack {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     };
 
+    const vpcStack = new VpcStack(this,'vpc-stack',{env:process.env});
+    const vpc = vpcStack.vpc;
+    const subnets = vpcStack.subnets;
+
     const dynamoTable = new Table(this, "chat_user_info", {
       partitionKey: {
         name: "username",
@@ -63,11 +68,14 @@ export class DeployJsStack extends Stack {
     const NodejsFunctionProps = {
       environment: {
         USER_TABLE: process.env.USER_TABLE,
+        TOKEN_KEY:process.env.TOKEN_KEY,
         OPENAI_API_KEY: process.env.OPENAI_API_KEY,
         START_CMD: process.env.START_CMD,
         SNS_TOPIC_ARN: snsTopic.topicArn,
       },
       runtime: Runtime.NODEJS_18_X,
+      vpc:vpc,
+      vpcSubnets:subnets,
     };
 
     const lambda_login = new NodejsFunction(this, "lambda_login", {
@@ -180,7 +188,7 @@ export class DeployJsStack extends Stack {
     webSocketApi.addRoute("sendprompt", {
       integration: new WebSocketLambdaIntegration(
         "SendMessageIntegration",
-        lambda_chat
+        lambda_handle_chat
       ),
     });
 
@@ -188,5 +196,10 @@ export class DeployJsStack extends Stack {
     webSocketStage.grantManagementApiAccess(lambda_chat);
     // for all the stages permission
     webSocketApi.grantManageConnections(lambda_chat);
+
+
+    // Open search
+    const opensearch = new OpenSearchStack(this,'opensearch-dev',{vpc:vpc});
+
   }
 }

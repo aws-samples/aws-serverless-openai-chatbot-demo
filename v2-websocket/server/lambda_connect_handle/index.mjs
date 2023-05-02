@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 
 export const handler = async (event) => {
     const token = event.queryStringParameters.token
+    console.log(token)
     // let username ;
     if (!token) {
       return  {
@@ -14,7 +15,9 @@ export const handler = async (event) => {
     try {
       const decoded = jwt.verify(token.split(' ')[1], process.env.TOKEN_KEY);
     //   username = decoded;
+      console.log('success')
     } catch (err) {
+        console.error(err)
         return  {
         statusCode: 400,
         body: JSON.stringify(err),

@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 
 // const DEFAULT_REGION = "ap-northeast-1";
-const TABLE_NAME = "chat_user_info";
+const TABLE_NAME = process.env.USER_TABLE;
 
 const createToken = (username) => {
   return jwt.sign({ username: username }, process.env.TOKEN_KEY, {

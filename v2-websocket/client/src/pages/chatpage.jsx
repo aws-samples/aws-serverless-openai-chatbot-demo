@@ -243,6 +243,7 @@ const ChatPage = () => {
   const onMessageCallback =({data})=>{
      //save conversations
       const resp = JSON.parse(data)
+      console.log(resp);
       if(resp.text.role)setConversations(prev=>[...prev,resp.text]);
 
       if(conversations.length > MAX_CONVERSATIONS){
@@ -261,7 +262,7 @@ const ChatPage = () => {
       queryParams:authtoken,
       onOpen: () => setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
         who:BOTNAME, 
-        text:'Welcome! Can I help you? 我还会中文以及其他999种语言'}]),
+        text:'Welcome! Can I help you?'}]),
       onMessage: onMessageCallback,
 
       // onClose: () => console.log('socket closed'),
