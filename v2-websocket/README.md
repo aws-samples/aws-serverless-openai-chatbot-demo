@@ -4,7 +4,8 @@
 - **Architecture change**  
 1. Add a WebSocket API Gateway, which is used to setup a long connection between client and backend.
 2. Decouple the chat function by using AWS SNS. Now OpenAI's API usually takes more than 30s to generate the response text, so that we cannot using HTTP API Gateway to trigger that function, because the HTTP API gateway has timeout limition of 30s.  
-![architecture-v2](../assets/architecture-v2.png)
+3. Add langchain to support other models
+![TVVPMx3KEC](https://user-images.githubusercontent.com/19160090/236713158-cb519f41-12a5-467e-b484-4515e126c8e8.jpg)
 
 
 
