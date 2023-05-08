@@ -17,6 +17,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { useAuth } from '../commons/use-auth';
 import {useNavigate} from 'react-router-dom';
 import { useLocalStorage } from '../commons/localStorage';
+import { LoadingButton } from '@mui/lab';
 
 function Copyright(props) {
   return (
@@ -41,6 +42,7 @@ const SignIn = () => {
   const [errormsg, setErrMsg] = useState('');
   const [username, setUsername] = useState();
   const [password, setPassword] = useState();
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const isAuthenticated = auth.user && auth.user.isAuthorized;
   useEffect(()=>{
@@ -60,6 +62,7 @@ const SignIn = () => {
   },[checked,local_stored_crediential]);
   const handleSubmit = (event) => {
     event.preventDefault();
+    setLoading(true)
     const formdata = new FormData(event.currentTarget);
     auth.signin(formdata.get('username'),formdata.get('password'))
     .then((data)=>{
@@ -71,11 +74,13 @@ const SignIn = () => {
         setErrorState(true);
         setErrMsg(data.body.message);
       }
+      setLoading(false)
 
     })
     .catch(error =>{ 
       setErrorState(true);
       setErrMsg(error.message);
+      setLoading(false)
     })
 
   };
@@ -138,14 +143,15 @@ const SignIn = () => {
                color="primary" />}
               label="Remember me"
             />
-            <Button
+            <LoadingButton
+             loading={loading}
               type="submit"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
             >
               Sign In
-            </Button>
+            </LoadingButton>
             <Grid container>
               {/* <Grid item xs>
                 <Link href="#" variant="body2">

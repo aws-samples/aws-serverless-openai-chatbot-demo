@@ -6,22 +6,23 @@ import {
     Navigate,
     useLocation
   } from "react-router-dom";
+import {useLocalStorage} from '../commons/localStorage';
 
+const LOCAL_TOKEN = 'chatbot-auth-info';
 
 export default function RequireAuth({ children,redirectPath }) {
     //use context
   const auth = useAuth();
-  // console.log(auth);
- 
+  const [local_stored_tokendata] = useLocalStorage(LOCAL_TOKEN, null);
+  const user = auth.user? auth.user:local_stored_tokendata;
+
   let isAuthenticated = false;
   let istokenExpired = false;
-  if(!auth.user){
+  if(!user){
     isAuthenticated = false;
   }
   else{
-    // console.log('auth:',JSON.stringify(auth.user));
-    isAuthenticated = auth.user.isAuthorized;
-
+    isAuthenticated = user.isAuthorized;
   }
   const location = useLocation();
   if (isAuthenticated && (!istokenExpired)) {

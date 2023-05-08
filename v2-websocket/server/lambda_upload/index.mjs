@@ -35,6 +35,27 @@ const queryDynamoDb = async (key) => {
   }
 };
 
+export const handler2 = async (event) => {
+  //query user in DB
+  const body = JSON.parse(event.body);
+  console.log(body);
+  const password = await queryDynamoDb(body.username);
+
+  //if user is not found, return 403
+  if (!password) {
+    return formatResponse(403, "User not found", "");
+  }
+
+  //if the password is not match, return 403
+  if (password !== body.password) {
+    return formatResponse(403, "Invalid credential", "");
+  }
+
+  //create jwt token
+  const token = createToken(body.username);
+  return formatResponse(200, "success", token);
+};
+
 
 const formatResponse = (code, errormsg, token) => {
   const response = {

@@ -1,0 +1,14 @@
+{
+    "name": "lambda-auth",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.mjs",
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "MIT-0",
+    "dependencies": {
+      "jsonwebtoken": "^9.0.0"
+    }
+  }

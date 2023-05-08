@@ -4,6 +4,8 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 
 export class OpenSearchStack extends NestedStack {
+    domainEndpoint;
+
 /**
    *
    * @param {Construct} scope
@@ -18,8 +20,10 @@ constructor(scope, id, props) {
         version: EngineVersion.OPENSEARCH_2_3,
         removalPolicy: RemovalPolicy.DESTROY,
         vpc:props.vpc,
-        enableVersionUpgrade: true,
-        useUnsignedBasicAuth: true,
+        subnets:props.subnets,
+        securityGroups:props.securityGroups,
+        // enableVersionUpgrade: true,
+        // useUnsignedBasicAuth: true,
         // zoneAwareness: {
         //     enabled: true,
         //   },
@@ -34,6 +38,7 @@ constructor(scope, id, props) {
       const masterUserPassword = devDomain.masterUserPassword;
       const domainEndpoint = devDomain.domainEndpoint;
     //   console.log(`masterUserPassword:${masterUserPassword}`);
+    this.domainEndpoint = domainEndpoint;
       new CfnOutput(this,'opensearch endpoint',{value:domainEndpoint});
       
     //   devDomain.grantIndexWrite('app-search', props.fn);

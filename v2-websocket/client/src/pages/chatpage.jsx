@@ -1,10 +1,15 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 import React, { useState, useRef, useEffect } from "react";
-import { TopNavHeader,modelParamsCtx,useModelParams,defaultModelParams } from "./components";
-import {  lightGreen, grey, blue, green } from "@mui/material/colors";
-import IconButton from '@mui/material/IconButton';
-import SendIcon from '@mui/icons-material/Send';
+import {
+  TopNavHeader,
+  modelParamsCtx,
+  useModelParams,
+  defaultModelParams,
+} from "./components";
+import { lightGreen, grey, blue, green } from "@mui/material/colors";
+import IconButton from "@mui/material/IconButton";
+import SendIcon from "@mui/icons-material/Send";
 import {
   Box,
   Stack,
@@ -12,26 +17,34 @@ import {
   OutlinedInput,
   List,
   ListItem,
+  Alert,
+  Collapse,
 } from "@mui/material";
-import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import useWebSocket from 'react-use-websocket';
+import CloseIcon from '@mui/icons-material/Close';
+import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import useWebSocket from "react-use-websocket";
 import { Formik, Form, useFormik } from "formik";
 import { useAuthToken } from "../commons/use-auth";
 import { useLocalStorage } from "../commons/localStorage";
-import botlogo from "../ai-logo.svg";
-import {API_socket} from "../commons/apigw";
+// import botlogo from "../ai-logo.svg";
+import botlogo from "../chatbot-logo.svg";
+
+import { API_socket } from "../commons/apigw";
+
+
+const params_local_storage_key = "chatbot_params_local_storage_key";
 
 const MAX_CONVERSATIONS = 4;
 
-function generateUniqueId(){
+function generateUniqueId() {
   const timestamp = Date.now();
   const randomNumber = Math.random();
   const hexadecimalString = randomNumber.toString(16).slice(3);
 
   return `id-${timestamp}-${hexadecimalString}`;
-};
+}
 
-const BOTNAME = 'AI';
+const BOTNAME = "AI";
 
 function stringToColor(string) {
   let hash = 0;
@@ -61,8 +74,13 @@ function stringAvatar(name) {
 
 const MsgItem = ({ who, text }) => {
   let id = 0;
-  const newlines = text.split('\n').map(it=><span key={id++}>{it}<br/></span>);
-  return who !== BOTNAME? (
+  const newlines = text.split("\n").map((it) => (
+    <span key={id++}>
+      {it}
+      <br />
+    </span>
+  ));
+  return who !== BOTNAME ? (
     <ListItem sx={{ display: "flex", justifyContent: "flex-end" }}>
       <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
         <TextItem sx={{ bgcolor: lightGreen[400] }}> {newlines}</TextItem>
@@ -72,7 +90,7 @@ const MsgItem = ({ who, text }) => {
   ) : (
     <ListItem>
       <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-        <Avatar src={botlogo} alt={'AIBot'}/>
+        <Avatar src={botlogo} alt={"AIBot"} />
         <TextItem> {newlines}</TextItem>
       </Stack>
     </ListItem>
@@ -101,22 +119,35 @@ const TextItem = (props) => {
   );
 };
 
-const ChatBox = ({ msgItems,loading }) => {
- const [loadingtext,setLoaderTxt] = useState('.');
-    useEffect(()=>{
-      let textContent = '';
-      let interval = setInterval(() => {
-            setLoaderTxt( v=> v+'.');
-            textContent+='.';
-            if (textContent.length > 5) {
-                setLoaderTxt('.');
-                textContent='';
-            }
-        }, 500);  
-      return ()=>{
-        if (interval) clearInterval(interval);
+const ChatBox = ({ msgItems, loading }) => {
+  const [loadingtext, setLoaderTxt] = useState(".");
+  const intervalRef = useRef(0);
+
+  function handleStartTick() {
+    let textContent = "";
+    const intervalId = setInterval(() => {
+      setLoaderTxt((v) => v + ".");
+      textContent += ".";
+      if (textContent.length > 5) {
+        setLoaderTxt(".");
+        textContent = "";
       }
-    },[]);
+    }, 500);
+    intervalRef.current = intervalId;
+  }
+
+  function handleStopClick() {
+    const intervalId = intervalRef.current;
+    if (intervalId) clearInterval(intervalId);
+  }
+  useEffect(() => {
+    if (loading) {
+      handleStartTick();
+    } else {
+      handleStopClick();
+    }
+  }, [loading]);
+
   const scrollRef = useRef(null);
   useEffect(() => {
     if (scrollRef.current) {
@@ -128,25 +159,28 @@ const ChatBox = ({ msgItems,loading }) => {
   ));
 
   return (
-
-  <List
-   sx={{ 
-        position: 'relative',
-        overflow: 'auto',
-        }}
-  >
-  {/* <MsgItem id={generateUniqueId()} who="AI" text ={"Welcome! Can I help you? 我还会中文以及其他999种语言"}/> */}
-  {items}
-  {loading? <MsgItem who={BOTNAME} text={loadingtext} />:<div/>}
-  <ListItem ref={scrollRef} />
-  </List>
+    <List
+      sx={{
+        position: "relative",
+        overflow: "auto",
+      }}
+    >
+      {/* <MsgItem id={generateUniqueId()} who="AI" text ={"Welcome! Can I help you? 我还会中文以及其他999种语言"}/> */}
+      {items}
+      {loading ? <MsgItem who={BOTNAME} text={loadingtext} /> : <div />}
+      <ListItem ref={scrollRef} />
+    </List>
   );
 };
 
-
-
-const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,sendMessage }) => {
-  const [local_stored_crediential,] = useLocalStorage('chat-login-token',null)
+const InputSection = ({
+  setmsgItems,
+  conversations,
+  setConversations,
+  setLoading,
+  sendMessage,
+}) => {
+  const [local_stored_crediential] = useLocalStorage("chat-login-token", null);
   const username = local_stored_crediential.username;
   // const [conversations,setConversations] = useState([]);
   const modelParams = useModelParams();
@@ -157,7 +191,7 @@ const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,se
       prompt: "",
     },
     onSubmit: (values) => {
-      if (values.length === 0){
+      if (values.length === 0) {
         return;
       }
       const respid = generateUniqueId();
@@ -169,12 +203,20 @@ const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,se
       //save conversations
       // setConversations((prev)=>[...prev,values.prompt]);
       // const prompt = conversations.join(" ")+"\n"+values.prompt;
-      setConversations((prev)=>[...prev,{role:'user',content:values.prompt}]);
-      const messages = [...conversations,{role:'user',content:values.prompt}];
+      setConversations((prev) => [
+        ...prev,
+        { role: "user", content: values.prompt },
+      ]);
+      const messages = [
+        ...conversations,
+        { role: "user", content: values.prompt },
+      ];
       formik.resetForm();
       setLoading(true);
-      sendMessage({action:"sendprompt",payload:{msgid:respid,messages:messages,params:modelParams}});
-
+      sendMessage({
+        action: "sendprompt",
+        payload: { msgid: respid, messages: messages, params: modelParams },
+      });
     },
   });
 
@@ -184,34 +226,37 @@ const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,se
         <Box
           sx={{
             display: "flex",
-            direction:"row",
-            justifyContent:"space-between",
+            direction: "row",
+            justifyContent: "space-between",
             alignItems: "center",
 
             borderTop: 1,
             p: 1,
             bgcolor: grey[50],
             borderColor: grey[400],
-            
+
             // gridTemplateColumns: "24px auto auto",
-            position:'fixed',
-            width:'100%',
+            position: "fixed",
+            width: "100%",
             // height:32,
-            bottom:0,
+            bottom: 0,
           }}
         >
-        <IconButton aria-label="refresh" edge="start" color="info" 
-              sx={{ ml: 0.25 }}
-              onClick={()=>{
-                setConversations([]);
-                setmsgItems([]);
-                setLoading(false);
-              }}
-              >
-          <RestartAltIcon size="medium"/>
-        </IconButton>
-          <OutlinedInput 
-            sx={{bgcolor: "white", flexGrow: 1, ml:0.5,mr:0.5}}
+          <IconButton
+            aria-label="refresh"
+            edge="start"
+            color="info"
+            sx={{ ml: 0.25 }}
+            onClick={() => {
+              setConversations([]);
+              setmsgItems([]);
+              setLoading(false);
+            }}
+          >
+            <RestartAltIcon size="medium" />
+          </IconButton>
+          <OutlinedInput
+            sx={{ bgcolor: "white", flexGrow: 1, ml: 0.5, mr: 0.5 }}
             value={formik.values.prompt}
             onChange={(event) => {
               formik.setValues({ prompt: event.target.value });
@@ -219,85 +264,143 @@ const InputSection = ({ setmsgItems,conversations,setConversations,setLoading,se
             multiline
             placeholder="Please enter text"
           />
-        <IconButton aria-label="send" edge="end" color="primary"  type="submit" sx={{ mr: 2 }}>
-          <SendIcon size="large"/>
-        </IconButton>
-
+          <IconButton
+            aria-label="send"
+            edge="end"
+            color="primary"
+            type="submit"
+            sx={{ mr: 2 }}
+          >
+            <SendIcon size="large" />
+          </IconButton>
         </Box>
       </Form>
     </Formik>
   );
 };
 
-
 const ChatPage = () => {
+  const [alertopen, setAlertOpen] = useState(false);
+  const [onMessageBuildFlag, setOnMessageBuildFlag] = useState(false);
+  const [localStoredParams, setLocalStoredParams] = useLocalStorage(
+    params_local_storage_key,
+    null
+  );
   const [msgItems, setmsgItems] = useState([]);
-  const [loading,setLoading] = useState(false);
-  const [modelParams,setModelParams] = useState(defaultModelParams);
-  const [conversations,setConversations] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modelParams, setModelParams] = useState(
+    !localStoredParams ? defaultModelParams : localStoredParams.modelParams
+  );
+  const [conversations, setConversations] = useState([]);
 
   const didUnmount = useRef(false);
   const authtoken = useAuthToken();
 
+  useEffect(() => {
+    setLocalStoredParams({ ...localStoredParams, modelParams: modelParams });
+  }, [modelParams]);
+  const onMessageCallback = ({ data }) => {
+    //save conversations
+    const resp = JSON.parse(data);
+    console.log(resp);
+    //如果是build idx回复的msg
+    if (resp.msgid === 'build_idx'){
+      setOnMessageBuildFlag(true);
+    }
+    if (resp.role && resp.msgid !== 'build_idx')
+      setConversations((prev) => [
+        ...prev,
+        { role: resp.role, content: resp.text.content },
+      ]);
 
-  const onMessageCallback =({data})=>{
-     //save conversations
-      const resp = JSON.parse(data)
-      console.log(resp);
-      if(resp.text.role)setConversations(prev=>[...prev,resp.text]);
-
-      if(conversations.length > MAX_CONVERSATIONS){
-        setConversations(prev=> prev.slice(conversations.length-MAX_CONVERSATIONS,))
-      }
-      setLoading(false);
-      setmsgItems((prev) => [...prev,{ id: resp.msgid, who:BOTNAME, text: resp.text.content.trimStart()}]
+    if (conversations.length > MAX_CONVERSATIONS) {
+      setConversations((prev) =>
+        prev.slice(conversations.length - MAX_CONVERSATIONS)
       );
-      // console.log(conversations);
-  }
+    }
+    setLoading(false);
+    setmsgItems((prev) => [
+      ...prev,
+      { id: resp.msgid, who: BOTNAME, text: resp.text.content.trimStart() },
+    ]);
+    // console.log(conversations);
+  };
 
   // setup websocket
-  const {sendMessage,sendJsonMessage, getWebSocket, readyState} = useWebSocket(
-    API_socket,
-    {
-      queryParams:authtoken,
-      onOpen: () => setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
-        who:BOTNAME, 
-        text:'Welcome! Can I help you?'}]),
+  const { sendMessage, sendJsonMessage, getWebSocket, readyState } =
+    useWebSocket(API_socket, {
+      queryParams: authtoken,
+      onOpen: () =>
+        setmsgItems((prev) => [
+          ...prev,
+          {
+            id: generateUniqueId(),
+            who: BOTNAME,
+            text: "Welcome! Can I help you?",
+          },
+        ]),
       onMessage: onMessageCallback,
-
-      // onClose: () => console.log('socket closed'),
-      // onError: () => console.log('socket error'),
-      onClose: () => setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
-          who:BOTNAME,
-          text: 'Sorry something wrong, remote socket connection closed'}]),
-      onError: () => setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
-          who:BOTNAME, 
-          text:'Sorry something wrong, remote socket connection error'}]),
+      retryOnError: true,
+      onClose: () => {
+        setLoading(false);
+        setAlertOpen(true);
+        // setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
+        //   who:BOTNAME,
+        //   text: 'Sorry something wrong, remote socket connection closed'}])
+      },
+      onError: () => {
+        setLoading(false);
+        console.log('connection error');
+        // setAlertOpen(true);
+      },
       shouldReconnect: (closeEvent) => {
-        return didUnmount.current === false;
+        return true;
       },
       reconnectAttempts: 100,
-      reconnectInterval: 5000,
-    }
-  )
-  
+      reconnectInterval: (attemptNumber) =>
+        Math.min(Math.pow(2, attemptNumber) * 1000, 10000),
+    });
+
   useEffect(() => {
     return () => {
       didUnmount.current = true;
     };
   }, []);
-
   return (
-    <modelParamsCtx.Provider value={modelParams}> 
-    <Stack direction="column" spacing={2} sx={{pb:5}}>
-      <TopNavHeader setModelParams={setModelParams}/>
-      <ChatBox  msgItems={msgItems}  loading={loading}/>
-      <InputSection  setmsgItems={setmsgItems}
-                      conversations={conversations}
-                      setConversations={setConversations}
-                     setLoading={setLoading} 
-                     sendMessage={sendJsonMessage} />
-    </Stack>
+    <modelParamsCtx.Provider value={[modelParams,onMessageBuildFlag,setOnMessageBuildFlag]}>
+      <Stack direction="column" spacing={2} sx={{ pb: 5 }}>
+        <TopNavHeader
+          setModelParams={setModelParams}
+          sendMessage={sendJsonMessage}
+        />
+         <Collapse in={alertopen}>
+        <Alert severity="error"
+        action={
+            <IconButton
+              aria-label="close"
+              color="inherit"
+              size="small"
+              onClick={() => {
+                setAlertOpen(false);
+              }}
+            >
+              <CloseIcon fontSize="inherit" />
+            </IconButton>
+          }
+          sx={{ mb: 2 }}
+        
+        >{'!!There is web connection error, please refresh'}
+        </Alert>
+        </Collapse>
+        <ChatBox msgItems={msgItems} loading={loading} />
+        <InputSection
+          setmsgItems={setmsgItems}
+          conversations={conversations}
+          setConversations={setConversations}
+          setLoading={setLoading}
+          sendMessage={sendJsonMessage}
+        />
+      </Stack>
     </modelParamsCtx.Provider>
   );
 };

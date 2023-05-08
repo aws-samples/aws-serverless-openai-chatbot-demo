@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT-0
 import React, { useState, useContext, createContext } from "react";
 import { loginAuth } from "./apigw";
+import {useLocalStorage} from "./localStorage";
 
+const LOCAL_TOKEN = 'chatbot-auth-info';
 const authContext = createContext();
 
 export function ProvideAuth({ children }) {
@@ -18,17 +20,23 @@ export function useAuthSignout () {
 
 export function useAuthUserInfo(){
     const auth = useAuth();
-    return auth;
+    const [local_stored_tokendata] = useLocalStorage(LOCAL_TOKEN,null);
+    const authdata = auth.user?auth.user:local_stored_tokendata;
+    return authdata;
   }
 
 export function useAuthToken(){
   const auth = useAuth();
-  const token = auth.user?auth.user.body.token:'';
+  const [local_stored_tokendata] = useLocalStorage(LOCAL_TOKEN,null);
+  const authdata = auth.user?auth.user:local_stored_tokendata;
+  const token = authdata.token;
   return {'token':'Bearer '+token}
 }
 export function useAuthorizedHeader(){
     const auth = useAuth();
-    const token = auth.user?auth.user.body.token:'';
+    const [local_stored_tokendata] = useLocalStorage(LOCAL_TOKEN,null);
+    const authdata = auth.user?auth.user:local_stored_tokendata;
+    const token = authdata.token;
     return {
             'Content-Type':'application/json;charset=utf-8',
             'Authorization':'Bearer '+token
@@ -43,15 +51,16 @@ export const useAuth = () => {
   // Provider hook that creates auth object and handles state
 function useProvideAuth() {
     const [user, setUser] = useState(null);
-
+    const [,setToken] = useLocalStorage(LOCAL_TOKEN,null);
     const signin = async (email, password) => {
       const data = await loginAuth(email, password);
+      setToken(data);
       setUser(data);
       return data;
     };
   
     const signout = () => {
-
+      setToken(null);
       return setUser(null);
     };
   
