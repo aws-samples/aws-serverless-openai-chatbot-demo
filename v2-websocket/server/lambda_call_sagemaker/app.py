@@ -26,6 +26,7 @@ import base64
 
 BULK_SIZE = 500
 s3 = boto3.client('s3')
+glue = boto3.client('glue')
 dynamodb = boto3.client('dynamodb')
 UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET')
 DOC_INDEX_TABLE= os.environ.get('DOC_INDEX_TABLE')
@@ -340,6 +341,14 @@ def handler(event, context):
         object = event['object']
         model_params = event['params']
         embedding_model = model_params.get('embedding_model_name').lower()
+
+        glue.start_job_run(JobName=os.environ.get('glue_jobname'), Arguments={"--event": json.dumps(event)})
+        return {
+            'statusCode': 200,
+            'headers': headers,
+            'body': json.dumps({'result': f'Build index for [{object}] with [{embedding_model}] job start' } )
+        }
+    
         texts = []
         #check if it is already built
         idx_name = get_idx_from_ddb(object,embedding_model)

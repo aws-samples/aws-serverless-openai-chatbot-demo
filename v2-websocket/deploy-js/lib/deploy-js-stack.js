@@ -9,7 +9,9 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import { AttributeType, Table } from "aws-cdk-lib/aws-dynamodb";
 import { Topic } from "aws-cdk-lib/aws-sns";
 import * as ecr from 'aws-cdk-lib/aws-ecr';
-
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import {
   HttpLambdaIntegration,
@@ -20,6 +22,7 @@ import { VpcStack } from './vpc-stack.js';
 import {OpenSearchStack} from './opensearch-stack.js';
 import {ApiGatewayStack} from './apigw-stack.js';
 import * as dotenv from "dotenv";
+import { GlueStack } from "./glue-stack.js";
 dotenv.config();
 
 import path from "path";
@@ -49,11 +52,16 @@ export class DeployJsStack extends Stack {
     const vpcStack = new VpcStack(this,'vpc-stack',{env:process.env});
     const vpc = vpcStack.vpc;
     const subnets = vpcStack.subnets;
-    const securityGroups = [vpcStack.securityGroups];
+    const securityGroups = vpcStack.securityGroups;
+
+    
 
       // Open search
     const opensearch = new OpenSearchStack(this,'opensearch-dev',{vpc:vpc,subnets:subnets,securityGroups:securityGroups});
     const opensearch_endpoint = opensearch.domainEndpoint;
+    // const opensearch_endpoint = 'sss';
+
+
     
     const user_ddb_table = new Table(this, "chat_user_info", {
       partitionKey: {
@@ -77,7 +85,10 @@ export class DeployJsStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY, // NOT recommended for production code
     });
 
-
+    //glue job
+    const gluestack = new GlueStack(this,'glue-stack',{opensearch_endpoint,region,vpc,subnets,securityGroups,table:doc_index_ddb_able.tableName});
+    new CfnOutput(this, `Glue Job name`,{value:`${gluestack.jobName}`});
+    
     // Create sns Topic
     const snsTopic = new Topic(this, "Topic", {
       displayName: "chat messages topic",
@@ -221,6 +232,7 @@ export class DeployJsStack extends Stack {
         UPLOADS_BUCKET:process.env.UPLOADS_BUCKET,
         DOC_INDEX_TABLE:doc_index_ddb_able.tableName,
         OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+        glue_jobname:gluestack.jobName
 
       },
     };
@@ -245,6 +257,57 @@ export class DeployJsStack extends Stack {
         effect: iam.Effect.ALLOW,
         resources: ['*'],
         }))
+    
+    lambda_fn_call_sagemaker.addToRolePolicy(
+          new iam.PolicyStatement({
+            actions: ['glue:StartJobRun'],
+            effect: iam.Effect.ALLOW,
+            resources: [ gluestack.jobArn ]
+          })
+        );
+    
+        const offline_trigger_lambda =  new lambda.Function(this, 'offline_trigger_lambda', {
+          environment: {
+            glue_jobname:gluestack.jobName,
+            embedding_endpoint:process.env.embedding_endpoint
+          },
+          runtime: lambda.Runtime.PYTHON_3_10,
+          timeout: Duration.minutes(1),
+          // functionName:'offline_trigger_lambda',
+          handler: 'app.lambda_handler',
+          code: lambda.Code.fromAsset(path.join(__dirname,'../../server/lambda_offline_trigger')),
+          vpc:vpc,
+          vpcSubnets:subnets,
+        });
+    //file upload bucket
+    // const bucket = new s3.Bucket(this, 'DocUploadBucket', {
+    //   removalPolicy: RemovalPolicy.DESTROY,
+    //   bucketName:process.env.UPLOADS_BUCKET
+    // });
+    // const bucket = s3.Bucket.fromBucketName(this, 'DocUploadBucket',process.env.UPLOADS_BUCKET);
+  //   offline_trigger_lambda.addToRolePolicy(
+  //     new iam.PolicyStatement({
+  //       actions: ['s3:GetBucketNotification', 's3:PutBucketNotification'],
+  //       effect: iam.Effect.ALLOW,
+  //       resources: [ bucket.bucketArn ]
+  //     })
+  //   );
+  //   offline_trigger_lambda.addToRolePolicy(
+  //     new iam.PolicyStatement({
+  //       actions: ['glue:StartJobRun'],
+  //       effect: iam.Effect.ALLOW,
+  //       resources: [ gluestack.jobArn ]
+  //     })
+  //   );
+
+  //   bucket.addEventNotification(
+  //     s3.EventType.OBJECT_CREATED,
+  //     new s3n.LambdaDestination(offline_trigger_lambda),{
+  //         prefix: process.env.UPLOAD_OBJ_PREFIX,
+  //     }
+  // )
+
+
 
     // Grant the Lambda function read access to the DynamoDB table
     user_ddb_table.grantReadWriteData(lambda_login);
@@ -259,26 +322,6 @@ export class DeployJsStack extends Stack {
 
     //create REST api
     const restapi = new ApiGatewayStack(this,'ChatBotRestApi',{lambda_login,lambda_auth,lambda_build:lambda_fn_call_sagemaker,lambda_list_idx,region})
-
-    // Create a HTTP API Gateway resource for each of the CRUD operations
-    // const cors = {
-    //   corsPreflight: {
-    //     allowHeaders: ["*"],
-    //     allowMethods: ["*"],
-    //     allowOrigins: ["*"],
-    //     maxAge: Duration.days(0),
-    //   },
-    // };
-    // const httpapi = new apigwv2.HttpApi(this, "ChatBotHttpApi", cors);
-
-
-
-    // //add route for login
-    // httpapi.addRoutes({
-    //   integration: new HttpLambdaIntegration("login", lambda_login),
-    //   path: "/login",
-    //   methods: [apigwv2.HttpMethod.POST],
-    // });
 
     const webSocketApi = new apigwv2.WebSocketApi(this, "ChatBotWsApi", {
       connectRouteOptions: {

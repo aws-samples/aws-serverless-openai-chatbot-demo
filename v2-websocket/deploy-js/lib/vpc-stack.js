@@ -42,15 +42,19 @@ export class VpcStack extends NestedStack {
 
     // securityGroup.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(22), 'Allow SSH Access');
     securityGroup.addIngressRule(securityGroup, ec2.Port.allTraffic(), 'Allow self traffic');
-    this.securityGroups = securityGroup;
+    this.securityGroups = [securityGroup];
     new CfnOutput(this,'subnets',{value:subnets.join()});
     // add interface endpionts for glue, lakeformation, sts, rds
     // !!! they are quite expensive, so only add one interface for each service   
     
-    const dynamoDbEndpoint = vpc.addGatewayEndpoint('DynamoDbEndpoint', {
+    const dynamoDbEndpoint = this.vpc.addGatewayEndpoint('DynamoDbEndpoint', {
       service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
     });
-
+    this.vpc.addInterfaceEndpoint('glue',{
+        service:ec2.InterfaceVpcEndpointAwsService.GLUE,
+        securityGroups:this.securityGroups,
+        subnets:{subnets:this.subnets}
+    });
     // vpc.addInterfaceEndpoint('lake-formation',{
     //     service:ec2.InterfaceVpcEndpointAwsService.LAKE_FORMATION,
     //     securityGroups:[securityGroup],

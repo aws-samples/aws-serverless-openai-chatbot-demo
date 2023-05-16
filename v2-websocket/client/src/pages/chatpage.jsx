@@ -280,6 +280,7 @@ const InputSection = ({
 };
 
 const ChatPage = () => {
+  const [isInit, setInit] = useState(false);
   const [alertopen, setAlertOpen] = useState(false);
   const [onMessageBuildFlag, setOnMessageBuildFlag] = useState(false);
   const [localStoredParams, setLocalStoredParams] = useLocalStorage(
@@ -331,34 +332,37 @@ const ChatPage = () => {
     useWebSocket(API_socket, {
       queryParams: authtoken,
       onOpen: () =>
-        setmsgItems((prev) => [
+        {
+          setInit(true);
+          setAlertOpen(false);
+          if (!isInit){
+          setmsgItems((prev) => [
           ...prev,
           {
             id: generateUniqueId(),
             who: BOTNAME,
             text: "Welcome! Can I help you?",
           },
-        ]),
+        ]);}
+      },
       onMessage: onMessageCallback,
       retryOnError: true,
       onClose: () => {
         setLoading(false);
         setAlertOpen(true);
-        // setmsgItems((prev) => [...prev,{ id: generateUniqueId(),
-        //   who:BOTNAME,
-        //   text: 'Sorry something wrong, remote socket connection closed'}])
+        console.log('connection close');
       },
       onError: () => {
         setLoading(false);
+        setAlertOpen(true);
         console.log('connection error');
-        // setAlertOpen(true);
       },
       shouldReconnect: (closeEvent) => {
         return true;
       },
       reconnectAttempts: 100,
       reconnectInterval: (attemptNumber) =>
-        Math.min(Math.pow(2, attemptNumber) * 1000, 10000),
+        Math.min(Math.pow(2, attemptNumber) * 1000, 15000),
     });
 
   useEffect(() => {
@@ -389,7 +393,7 @@ const ChatPage = () => {
           }
           sx={{ mb: 2 }}
         
-        >{'!!There is web connection error, please refresh'}
+        >{'There is web connection error, reconnecting...'}
         </Alert>
         </Collapse>
         <ChatBox msgItems={msgItems} loading={loading} />
