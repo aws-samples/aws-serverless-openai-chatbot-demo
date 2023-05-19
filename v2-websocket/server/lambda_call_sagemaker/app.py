@@ -30,7 +30,8 @@ glue = boto3.client('glue')
 dynamodb = boto3.client('dynamodb')
 UPLOADS_BUCKET = os.environ.get('UPLOADS_BUCKET')
 DOC_INDEX_TABLE= os.environ.get('DOC_INDEX_TABLE')
-embedding_endpoint = os.environ['embedding_endpoint']
+embedding_endpoint_all_minilm = os.environ['embedding_endpoint_all_minilm']
+embedding_endpoint_paraphrase = os.environ['embedding_endpoint_paraphrase']
 llm_endpoint = os.environ['llm_endpoint']
 region = os.environ['region']
 opensearch_endpoint = os.environ['opensearch_endpoint']
@@ -170,17 +171,22 @@ def get_embedding_docsearch(index_name,embedding_model):
     credentials = boto3.Session().get_credentials()
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
     default =   SagemakerEndpointEmbeddings(
-            endpoint_name=embedding_endpoint, 
+            endpoint_name=embedding_endpoint_paraphrase, 
             region_name=region, 
             content_handler = EmbContentHandler()
         )
     if embedding_model == 'all-minilm-l6-v2':
-       embedding = default
-       
+        embedding = SagemakerEndpointEmbeddings(
+            endpoint_name=embedding_endpoint_all_minilm, 
+            region_name=region, 
+            content_handler = EmbContentHandler()
+        )
+    elif embedding_model == 'paraphrase-mpnet-base-v2':
+        embedding = default
     elif embedding_model == 'openai':
         embedding = OpenAIEmbeddings()
     else:
-        return default
+        embedding = default
 
     return OpenSearchVectorSearch(index_name=index_name,
                                         embedding_function=embedding, 
@@ -197,14 +203,22 @@ def create_embedding_docsearch(texts,embedding_model,bulk_size):
     credentials = boto3.Session().get_credentials()
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
     default =   SagemakerEndpointEmbeddings(
-            endpoint_name=embedding_endpoint, 
+            endpoint_name=embedding_endpoint_paraphrase, 
             region_name=region, 
             content_handler = EmbContentHandler()
         )
     if embedding_model == 'all-minilm-l6-v2':
+        embedding = SagemakerEndpointEmbeddings(
+            endpoint_name=embedding_endpoint_all_minilm, 
+            region_name=region, 
+            content_handler = EmbContentHandler()
+        )
+    elif embedding_model == 'paraphrase-mpnet-base-v2':
         embedding = default
     elif embedding_model == 'openai':
         embedding = OpenAIEmbeddings()
+    else:
+        embedding = default
 
     return OpenSearchVectorSearch.from_texts(texts=texts, embedding=embedding, bulk_size=bulk_size,
                                 http_auth = awsauth,
@@ -221,7 +235,8 @@ def handler(event, context):
         task = 'build'
     else:
         task = event['task']
-    print(f'embedding_endpoint:{embedding_endpoint}')
+    print(f'embedding_endpoint_paraphrase:{embedding_endpoint_paraphrase}')
+    print(f'embedding_endpoint_all_minilm:{embedding_endpoint_all_minilm}')
     print(f'llm_endpoint:{llm_endpoint}')
     print(f'opensearch_endpoint:{opensearch_endpoint}')
     print(f'region:{region}')
@@ -230,7 +245,7 @@ def handler(event, context):
         query = event['query']
         embcontent_handler = EmbContentHandler()
         sg_embeddings = SagemakerEndpointEmbeddings(
-            endpoint_name=embedding_endpoint, 
+            endpoint_name=embedding_endpoint_paraphrase, 
             region_name=region, 
             content_handler=embcontent_handler
         )

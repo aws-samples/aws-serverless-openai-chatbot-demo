@@ -2,8 +2,6 @@ import json
 import boto3
 import os
 
-JOBNAME = os.environ['glue_jobname']
-embedding_endpoint = os.environ.get("embedding_endpoint", "")
 def lambda_handler(event, context):
 
     glue = boto3.client('glue')
@@ -13,8 +11,15 @@ def lambda_handler(event, context):
     
     print("**** in lambda : " + bucket)
     print("**** in lambda : " + object_key)
-
-    glue.start_job_run(JobName=JOBNAME, Arguments={"--bucket": bucket, "--object_key": object_key, "--EMB_MODEL_ENDPOINT": embedding_endpoint})
+ 
+    
+    
+    event = {'params':{'embedding_model_name':'paraphrase-mpnet-base-v2'},
+                 'username':'s3notifications',
+                 'bucket':bucket,
+                 'object':object_key
+                 }
+    glue.start_job_run(JobName=os.environ.get('glue_jobname'), Arguments={"--event": json.dumps(event)})
 
     return {
         'statusCode': 200,

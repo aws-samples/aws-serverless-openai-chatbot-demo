@@ -1,23 +1,19 @@
 #!/usr/bin/env python
 # coding: utf-8
-from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth, helpers
+from opensearchpy import RequestsHttpConnection
 import boto3
 from awsglue.utils import getResolvedOptions
 import sys,json
 from typing import Dict, List
 from langchain.embeddings import SagemakerEndpointEmbeddings
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.llms import OpenAI
-from langchain.chat_models import ChatOpenAI
+
 from langchain.embeddings.sagemaker_endpoint import EmbeddingsContentHandler
-from langchain import PromptTemplate, SagemakerEndpoint
-from langchain.llms.sagemaker_endpoint import LLMContentHandler
-from langchain.chains.question_answering import load_qa_chain
-from langchain.chains import LLMChain,ConversationalRetrievalChain,ConversationChain
+
 from langchain.vectorstores import OpenSearchVectorSearch
-from langchain.text_splitter import CharacterTextSplitter,RecursiveCharacterTextSplitter
-from langchain.memory import ConversationBufferMemory
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from requests_aws4auth import AWS4Auth
+from PyPDF2 import PdfReader
 import math,os
 
 
@@ -26,7 +22,7 @@ BULK_SIZE = 500
 s3 = boto3.client('s3')
 dynamodb = boto3.client('dynamodb')
 args = getResolvedOptions(sys.argv, ['event','UPLOADS_BUCKET','DOC_INDEX_TABLE',
-                                     'opensearch_endpoint','embedding_endpoint',
+                                     'opensearch_endpoint','embedding_endpoint_all_minilm','embedding_endpoint_paraphrase',
                                      'region','llm_endpoint','OPENAI_API_KEY',
                                      ])
 
@@ -35,7 +31,9 @@ event = args['event']
 os.environ['OPENAI_API_KEY'] =  args['OPENAI_API_KEY']
 UPLOADS_BUCKET = args['UPLOADS_BUCKET']
 DOC_INDEX_TABLE= args['DOC_INDEX_TABLE']
-embedding_endpoint =args['embedding_endpoint']
+embedding_endpoint_all_minilm =args['embedding_endpoint_all_minilm']
+embedding_endpoint_paraphrase =args['embedding_endpoint_paraphrase']
+
 llm_endpoint =args['llm_endpoint']
 region =args['region']
 opensearch_endpoint =args['opensearch_endpoint']
@@ -52,16 +50,38 @@ class EmbContentHandler(EmbeddingsContentHandler):
         response_json = json.loads(output.read().decode("utf-8"))
         return response_json["vectors"]
     
+def process_pdf_file(reader):
+    raw_text = ''
+    for i, page in enumerate(reader.pages):
+        text = page.extract_text()
+        if text:
+            raw_text += text
+    return raw_text
 
 def download_s3(bucket, filename):
-    try:
-        response = s3.get_object(Bucket=bucket, Key=filename)
-        content = response['Body'].read().decode('utf-8')  # Decode the file contents
-        # print(content)  # Or save the file to disk with open('file.txt', 'wb').write(response['Body'].read())
-        return content
-    except Exception as e:
-        print(f"There was an error downloading the file Exception: {str(e)}")
-        return None
+    _, ext = os.path.splitext(filename.lstrip('/'))
+    if ext == '.txt':
+        try:
+            response = s3.get_object(Bucket=bucket, Key=filename)
+            content = response['Body'].read().decode('utf-8')  # Decode the file contents
+            # print(content)  # Or save the file to disk with open('file.txt', 'wb').write(response['Body'].read())
+            return content
+        except Exception as e:
+            print(f"There was an error downloading the file Exception: {str(e)}")
+            return None
+    if ext == '.pdf':
+        try:
+            os.makedirs('/tmp', exist_ok=True)
+            tmpfile = filename.split('/')[-1]
+            s3.download_file(bucket, filename, tmpfile)
+            reader = PdfReader(tmpfile)
+            return process_pdf_file(reader)
+        except Exception as e:
+            print(f"There was an error downloading the file Exception: {str(e)}")
+            return None
+
+
+        
 
 def put_idx_to_ddb(filename,username,index_name,embedding_model):
     try:
@@ -158,17 +178,22 @@ def get_embedding_docsearch(index_name,embedding_model):
     credentials = boto3.Session().get_credentials()
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
     default =   SagemakerEndpointEmbeddings(
-            endpoint_name=embedding_endpoint, 
+            endpoint_name=embedding_endpoint_paraphrase, 
             region_name=region, 
             content_handler = EmbContentHandler()
         )
     if embedding_model == 'all-minilm-l6-v2':
-       embedding = default
-       
+        embedding = SagemakerEndpointEmbeddings(
+            endpoint_name=embedding_endpoint_all_minilm, 
+            region_name=region, 
+            content_handler = EmbContentHandler()
+        )
+    elif embedding_model == 'paraphrase-mpnet-base-v2':
+        embedding = default
     elif embedding_model == 'openai':
         embedding = OpenAIEmbeddings()
     else:
-        return default
+        embedding = default
 
     return OpenSearchVectorSearch(index_name=index_name,
                                         embedding_function=embedding, 
@@ -185,14 +210,22 @@ def create_embedding_docsearch(texts,embedding_model,bulk_size):
     credentials = boto3.Session().get_credentials()
     awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
     default =   SagemakerEndpointEmbeddings(
-            endpoint_name=embedding_endpoint, 
+            endpoint_name=embedding_endpoint_paraphrase, 
             region_name=region, 
             content_handler = EmbContentHandler()
         )
     if embedding_model == 'all-minilm-l6-v2':
+        embedding = SagemakerEndpointEmbeddings(
+            endpoint_name=embedding_endpoint_all_minilm, 
+            region_name=region, 
+            content_handler = EmbContentHandler()
+        )
+    elif embedding_model == 'paraphrase-mpnet-base-v2':
         embedding = default
     elif embedding_model == 'openai':
         embedding = OpenAIEmbeddings()
+    else:
+        embedding = default
 
     return OpenSearchVectorSearch.from_texts(texts=texts, embedding=embedding, bulk_size=bulk_size,
                                 http_auth = awsauth,

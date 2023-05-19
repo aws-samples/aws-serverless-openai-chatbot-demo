@@ -34,8 +34,8 @@ import { useLocalStorage } from "../commons/localStorage";
 
 const params_local_storage_key = "chatbot_params_local_storage_key";
 const drawerWidth = 360;
-const models = ["chatglm-6b", "gpt-3.5-turbo"]; //['text-davinci-003','code-davinci-002'];
-const embeddings = ["all-minilm-l6-v2", "openai"];
+const models = [ "gpt-3.5-turbo","chatglm-6b"]; //['text-davinci-003','code-davinci-002'];
+const embeddings = ['paraphrase-mpnet-base-v2',"all-minilm-l6-v2", "openai"];
 export const modelParamsCtx = React.createContext();
 export const useModelParams = () => {
   return useContext(modelParamsCtx)[0];

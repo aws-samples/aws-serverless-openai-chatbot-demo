@@ -3,10 +3,10 @@
 import axios from 'axios';
 //Change to your own WebSocket API Gateway endpoint
 //Change to your own HTTP API Gateway endpoint
-const http_apiid = 'm0l2c6opd0'
-const ws_apiid = 'nx0ulynw7e'
-const region = 'us-west-2'
-export const Upload_S3 = 'test-chat-qa-files'
+const http_apiid = 'la0b3bk8c3'
+const ws_apiid = '7qbw7k5iw0'
+const region = 'ap-northeast-1'
+export const Upload_S3 = 'chat-qa-files-test-ap-northeast-1'
 export const API_socket = `wss://${ws_apiid}.execute-api.${region}.amazonaws.com/Prod`;
 export const API_http = `https://${http_apiid}.execute-api.${region}.amazonaws.com/prod`;
 // export const API_http = `https://m0l2c6opd0.execute-api.us-west-2.amazonaws.com/prod`;

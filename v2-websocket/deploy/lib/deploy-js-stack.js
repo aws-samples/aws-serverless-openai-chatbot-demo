@@ -14,7 +14,6 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 import {
-  HttpLambdaIntegration,
   WebSocketLambdaIntegration,
 } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import * as apigwv2 from "@aws-cdk/aws-apigatewayv2-alpha";
