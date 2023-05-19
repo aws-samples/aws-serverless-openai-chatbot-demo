@@ -33,6 +33,8 @@ export function addCorsOptions(apiResource) {
 
 
 export class ApiGatewayStack extends NestedStack {
+
+    endpoint = '';
     /**
      *
      * @param {Construct} scope
@@ -64,8 +66,8 @@ export class ApiGatewayStack extends NestedStack {
           allowMethods: Cors.ALL_METHODS
         },
         // policy:
-
     });
+    this.endpoint = api.url;
 
     api.addGatewayResponse('cors1',{  
       type:ResponseType.ACCESS_DENIED,

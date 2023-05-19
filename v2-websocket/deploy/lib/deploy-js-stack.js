@@ -302,11 +302,17 @@ export class DeployJsStack extends Stack {
     );
 
     bucket.addEventNotification(
-      s3.EventType.OBJECT_CREATED_PUT,
+      s3.EventType.OBJECT_CREATED_COMPLETE_MULTIPART_UPLOAD,
       new s3n.LambdaDestination(offline_trigger_lambda),{
           prefix: process.env.UPLOAD_OBJ_PREFIX,
       }
   )
+  bucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED_PUT,
+    new s3n.LambdaDestination(offline_trigger_lambda),{
+        prefix: process.env.UPLOAD_OBJ_PREFIX,
+    }
+)
 
 
 
@@ -323,6 +329,7 @@ export class DeployJsStack extends Stack {
 
     //create REST api
     const restapi = new ApiGatewayStack(this,'ChatBotRestApi',{lambda_login,lambda_auth,lambda_build:lambda_fn_call_sagemaker,lambda_list_idx,region})
+    new CfnOutput(this,'HttpApi_URL',{value:restapi.endpoint })
 
     const webSocketApi = new apigwv2.WebSocketApi(this, "ChatBotWsApi", {
       connectRouteOptions: {

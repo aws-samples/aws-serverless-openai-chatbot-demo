@@ -30,8 +30,8 @@ constructor(scope, id, props) {
             dataNodes: 1,
           },
         ebs: {
-        volumeSize: 100,
-        volumeType: ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD,
+        volumeSize: 200,
+        volumeType: ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3,
         },
       });
       const masterUserPassword = devDomain.masterUserPassword;
