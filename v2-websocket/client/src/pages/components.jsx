@@ -27,10 +27,13 @@ import {
 } from "@mui/material";
 import { LoadingButton } from "@mui/lab";
 import { MuiFileInput } from "mui-file-input";
-import { putFile, Upload_S3, listDocIdx } from "../commons/apigw";
+import { uploadFile, Upload_S3, listDocIdx } from "../commons/apigw";
 import { useAuthToken, useAuthUserInfo } from "../commons/use-auth";
 import { useState, useEffect, useContext } from "react";
 import { useLocalStorage } from "../commons/localStorage";
+import { Document, Page } from 'react-pdf';
+import { saveAs } from 'file-saver';
+
 
 const params_local_storage_key = "chatbot_params_local_storage_key";
 const drawerWidth = 360;
@@ -148,10 +151,10 @@ const UploadComp = ({ setModelParams, sendMessage }) => {
     setEnableQA(true);
   };
 
-  useEffect(() => {}, []);
 
   const headers = {
     Authorization: token.token,
+    'Content-Type': 'multipart/form-data',
     // "Content-Type": "text/plain",
     // "Content-Type": "application/pdf",
   };
@@ -189,7 +192,9 @@ const UploadComp = ({ setModelParams, sendMessage }) => {
       const formData = new FormData();
       formData.append("file", file);
       // console.log(formData);
-      putFile(file.name, formData, headers)
+      uploadFile(file.name, formData, 
+      headers,
+        )
         .then((response) => {
           console.log(response);
           setLoading(false);
@@ -199,7 +204,7 @@ const UploadComp = ({ setModelParams, sendMessage }) => {
             lastuploadedfilename: file.name,
             username: authuser.username,
           });
-          setHelperMsg("Upload file success, click build button");
+          setHelperMsg("Upload file success");
         })
         .catch((error) => {
           console.log(error);
@@ -244,7 +249,7 @@ const UploadComp = ({ setModelParams, sendMessage }) => {
         color={errorstate ? "error" : "primary"}
         error={errorstate}
         FormHelperTextProps={{ error: errorstate }}
-        inputProps={{ accept: ".txt" }}
+        inputProps={{ accept: ".txt,.pdf" }}
         variant="outlined"
         helperText={helperMsg}
         label="Ask questions towards your own document"
@@ -259,9 +264,9 @@ const UploadComp = ({ setModelParams, sendMessage }) => {
         loading={loading}
         disabled={uploadsuccess || !file}
       >
-        1. Upload
+        Upload
       </LoadingButton>
-      <LoadingButton
+      {/* <LoadingButton
         onClick={handleBuild}
         type="submit"
         fullWidth
@@ -270,7 +275,7 @@ const UploadComp = ({ setModelParams, sendMessage }) => {
         disabled={!uploadsuccess || buildsuccess}
       >
         2. Build Index
-      </LoadingButton>
+      </LoadingButton> */}
       <FormControl sx={{ m: 1, minWidth: 180, maxWidth:drawerWidth }}>
         <InputLabel id="select-docs-label">Select the doc to use</InputLabel>
         <Select
@@ -278,11 +283,6 @@ const UploadComp = ({ setModelParams, sendMessage }) => {
           onChange={handleSelectChange}
           label="Select the doc to use"
         >
-          {/* {embeddings.map((model, key) => (
-            <MenuItem key={key} value={`all_docs_idx_${model.toLowerCase()}`}>
-              {`All /${model.toLowerCase()}`}
-            </MenuItem>
-          ))} */}
           {alldocs.map(
             ({ filename, username, index_name, embedding_model }) => (
               <MenuItem key={index_name} value={index_name}>

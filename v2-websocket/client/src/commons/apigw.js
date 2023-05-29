@@ -39,6 +39,16 @@ export const listDocIdx = async(headers) =>{
 
 }
 
+export const uploadFile = async(filename,formdata,headers) =>{
+    try {
+        const resp = await axios.post(`${API_http}/upload`,formdata, {headers,responseType: 'blob'}, );
+        // console.log(resp.data);
+        return resp.data;
+    } catch (err) {
+        throw err;
+    }
+}
+
 export const putFile = async(filename,formdata,headers) =>{
     try {
         const resp = await axios.put(`${API_http}/upload/${Upload_S3}/${filename}`,formdata, {headers});

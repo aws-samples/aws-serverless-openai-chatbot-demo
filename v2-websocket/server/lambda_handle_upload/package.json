@@ -1,0 +1,15 @@
+{
+  "name": "lambda_handle_upload",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT-0",
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "formidable": "^2.1.1"
+  }
+}

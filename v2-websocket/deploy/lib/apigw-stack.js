@@ -50,6 +50,7 @@ export class ApiGatewayStack extends NestedStack {
     const auth_handler = props.lambda_auth;
     const build_handler = props.lambda_build;
     const listidx_handler = props.lambda_list_idx;
+    const upload_handler = props.lambda_handle_upload;
     const region = props.region
 
     // create lambda authorizer
@@ -97,7 +98,10 @@ export class ApiGatewayStack extends NestedStack {
     const login = api.root.addResource('login');
     login.addMethod('POST', loginIntegration);
 
+
+    const uploadIntegration = new LambdaIntegration(upload_handler);
     const upload = api.root.addResource('upload');
+    upload.addMethod('POST', uploadIntegration,{authorizer});
 
     const buildIntegration = new LambdaIntegration(build_handler);
     const build = api.root.addResource('build');
