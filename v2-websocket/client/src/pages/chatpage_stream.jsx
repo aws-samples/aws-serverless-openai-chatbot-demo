@@ -20,7 +20,7 @@ import {
   Alert,
   Collapse,
 } from "@mui/material";
-import CloseIcon from '@mui/icons-material/Close';
+import CloseIcon from "@mui/icons-material/Close";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import useWebSocket from "react-use-websocket";
 import { Formik, Form, useFormik } from "formik";
@@ -30,7 +30,6 @@ import { useLocalStorage } from "../commons/localStorage";
 import botlogo from "../chatbot-logo.svg";
 
 import { API_socket } from "../commons/apigw";
-
 
 const params_local_storage_key = "chatbot_params_local_storage_key";
 
@@ -184,7 +183,7 @@ const InputSection = ({
   const username = local_stored_crediential.username;
   // const [conversations,setConversations] = useState([]);
   const modelParams = useModelParams();
-  // console.log(modelParams);
+  // console.log(conversations);
   // const authheader = useAuthorizedHeader();
   const formik = useFormik({
     initialValues: {
@@ -282,6 +281,8 @@ const InputSection = ({
 const ChatPage = () => {
   const [isInit, setInit] = useState(false);
   const [alertopen, setAlertOpen] = useState(false);
+  // const [messageDict, setMessageDict] = useState({});
+  const [streamMsg, setStreamMsg] = useState('');
   const [onMessageBuildFlag, setOnMessageBuildFlag] = useState(false);
   const [localStoredParams, setLocalStoredParams] = useLocalStorage(
     params_local_storage_key,
@@ -301,64 +302,74 @@ const ChatPage = () => {
     setLocalStoredParams({ ...localStoredParams, modelParams: modelParams });
   }, [modelParams]);
   const onMessageCallback = ({ data }) => {
+    setLoading(false);
     //save conversations
     const resp = JSON.parse(data);
-    console.log(resp);
-    if (resp.text.content ===''){
-      return
-    }
-    //如果是build idx回复的msg
-    if (resp.msgid === 'build_idx'){
-      setOnMessageBuildFlag(true);
-    }
-    if (resp.role && resp.msgid !== 'build_idx')
-      setConversations((prev) => [
-        ...prev,
-        { role: resp.role, content: resp.text.content },
-      ]);
+    // console.log(resp);
 
-    if (conversations.length > MAX_CONVERSATIONS) {
-      setConversations((prev) =>
-        prev.slice(conversations.length - MAX_CONVERSATIONS)
+
+    if (resp.role) {
+
+      setStreamMsg(prev => (prev+resp.text.content));
+
+      // if stream stop, save the whole message
+      if ( resp.text?.content ==='[DONE]') {
+        setConversations((prev) => [
+          ...prev,
+          {role: resp.role, content: streamMsg },
+        ]);
+        setStreamMsg('');
+        // console.log(streamMsg);
+        if (conversations.length > MAX_CONVERSATIONS) {
+          setConversations((prev) =>
+            prev.slice(conversations.length - MAX_CONVERSATIONS)
+          );
+        }
+      }
+    }
+    if ( resp.text?.content !=='[DONE]') {
+        setmsgItems((prev) =>
+         prev.filter(item => (item.id === resp.msgid)).length  // 如果msgid已经存在
+          ? 
+           (prev.map((it) => ( (it.id === resp.msgid)?  
+            { id: it.id, who: BOTNAME, text: streamMsg }:
+              {id: it.id, who: it.who, text: it.text })) )
+          : [...prev, { id: resp.msgid, who: BOTNAME, text: resp.text.content }] //创建一个新的item
+        
       );
     }
-    setLoading(false);
-    setmsgItems((prev) => [
-      ...prev,
-      { id: resp.msgid, who: BOTNAME, text: resp.text.content },
-    ]);
-    console.log(conversations);
+    //  console.log(conversations);   
   };
 
   // setup websocket
   const { sendMessage, sendJsonMessage, getWebSocket, readyState } =
     useWebSocket(API_socket, {
       queryParams: authtoken,
-      onOpen: () =>
-        {
-          setInit(true);
-          setAlertOpen(false);
-          if (!isInit){
+      onOpen: () => {
+        setInit(true);
+        setAlertOpen(false);
+        if (!isInit) {
           setmsgItems((prev) => [
-          ...prev,
-          {
-            id: generateUniqueId(),
-            who: BOTNAME,
-            text: "Welcome! Can I help you?",
-          },
-        ]);}
+            ...prev,
+            {
+              id: generateUniqueId(),
+              who: BOTNAME,
+              text: "Welcome! Can I help you?",
+            },
+          ]);
+        }
       },
       onMessage: onMessageCallback,
       retryOnError: true,
       onClose: () => {
         setLoading(false);
         setAlertOpen(true);
-        console.log('connection close');
+        console.log("connection close");
       },
       onError: () => {
         setLoading(false);
         setAlertOpen(true);
-        console.log('connection error');
+        console.log("connection error");
       },
       shouldReconnect: (closeEvent) => {
         return true;
@@ -374,30 +385,33 @@ const ChatPage = () => {
     };
   }, []);
   return (
-    <modelParamsCtx.Provider value={[modelParams,onMessageBuildFlag,setOnMessageBuildFlag]}>
+    <modelParamsCtx.Provider
+      value={[modelParams, onMessageBuildFlag, setOnMessageBuildFlag]}
+    >
       <Stack direction="column" spacing={2} sx={{ pb: 5 }}>
         <TopNavHeader
           setModelParams={setModelParams}
           sendMessage={sendJsonMessage}
         />
-         <Collapse in={alertopen}>
-        <Alert severity="error"
-        action={
-            <IconButton
-              aria-label="close"
-              color="inherit"
-              size="small"
-              onClick={() => {
-                setAlertOpen(false);
-              }}
-            >
-              <CloseIcon fontSize="inherit" />
-            </IconButton>
-          }
-          sx={{ mb: 2 }}
-        
-        >{'There is web connection error, reconnecting...'}
-        </Alert>
+        <Collapse in={alertopen}>
+          <Alert
+            severity="error"
+            action={
+              <IconButton
+                aria-label="close"
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  setAlertOpen(false);
+                }}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            }
+            sx={{ mb: 2 }}
+          >
+            {"There is web connection error, reconnecting..."}
+          </Alert>
         </Collapse>
         <ChatBox msgItems={msgItems} loading={loading} />
         <InputSection

@@ -2,7 +2,7 @@
   "name": "lambda_chat",
   "version": "1.0.0",
   "description": "",
-  "main": "index.mjs",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "env": "^0.0.2",
+    "eventsource-parser": "^1.0.0",
     "openai": "^3.1.0"
   }
 }

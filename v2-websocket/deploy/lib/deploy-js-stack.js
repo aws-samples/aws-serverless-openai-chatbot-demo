@@ -112,6 +112,7 @@ export class DeployJsStack extends Stack {
         UPLOADS_BUCKET: process.env.UPLOADS_BUCKET,
         UPLOAD_OBJ_PREFIX:process.env.UPLOAD_OBJ_PREFIX
       },
+      memorySize: 256,
       runtime: Runtime.NODEJS_18_X,
       vpc: vpc,
       vpcSubnets: subnets,
@@ -133,7 +134,7 @@ export class DeployJsStack extends Stack {
       },
     });
     const lambda_chat = new NodejsFunction(this, "lambda_chat", {
-      entry: join(__dirname, "../../server/lambda_chat", "index.mjs"),
+      entry: join(__dirname, "../../server/lambda_chat", "index.js"),
       depsLockFilePath: join(
         __dirname,
         "../../server/lambda_chat",
@@ -406,7 +407,11 @@ export class DeployJsStack extends Stack {
 
     // per stage permission
     webSocketStage.grantManagementApiAccess(lambda_chat);
+    webSocketStage.grantManagementApiAccess(lambda_fn_call_sagemaker);
+
     // for all the stages permission
     webSocketApi.grantManageConnections(lambda_chat);
+    webSocketApi.grantManageConnections(lambda_fn_call_sagemaker);
+
   }
 }

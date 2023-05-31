@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List, Union
 from langchain.embeddings import SagemakerEndpointEmbeddings
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
@@ -11,6 +11,7 @@ from langchain.chains import LLMChain,ConversationalRetrievalChain,ConversationC
 from langchain.vectorstores import OpenSearchVectorSearch
 from langchain.text_splitter import CharacterTextSplitter,RecursiveCharacterTextSplitter
 from langchain.memory import ConversationBufferMemory
+from langchain.callbacks.base import BaseCallbackHandler
 
 from requests_aws4auth import AWS4Auth
 from opensearchpy import OpenSearch, RequestsHttpConnection
@@ -40,6 +41,27 @@ headers = {
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "OPTIONS,GET,PUT,POST,DELETE"
                 }
+
+
+class CustomCallbackHandler(BaseCallbackHandler):
+    def __init__(self,ws_endpoint:str,connectionId:str,msgid:str):
+        self.connectionId = connectionId
+        self.msgid = msgid
+        self.ws_client = boto3.client('apigatewaymanagementapi',endpoint_url=ws_endpoint)
+
+
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        """Run on new LLM token. Only available when streaming is enabled."""
+        try:
+            data = json.dumps({ 'msgid':self.msgid, 'role': "AI", 'text': {'content':token} })
+            self.ws_client.post_to_connection(Data = data.encode('utf-8'),
+                                              ConnectionId=self.connectionId)
+        except Exception as e:
+            print(str(e))
+        # sys.stdout.write(token)
+        # sys.stdout.flush()
+
+
 
 class EmbContentHandler(EmbeddingsContentHandler):
     content_type = "application/json"
@@ -260,9 +282,14 @@ def handler(event, context):
                         )
             }
     elif task == 'chat':
+        msgid = event['msgid']
+        ws_endpoint= event['ws_endpoint']
+        connectionId = event['connectionId']
         messagelist = event['messages']
         model_params = event['params']
+        model_name = model_params['model_name']
         embedding_model = model_params.get('embedding_model_name').lower()
+        use_streaming = False
         print(model_params)
         chat_history = []
         queries =  [ msg['content'] for msg in messagelist[:-1] if msg['role'] == 'user' ]
@@ -273,7 +300,9 @@ def handler(event, context):
         print(f'chat_history:{chat_history}')
         
         prompt = messagelist[-1]['content']
-        if model_params.get('model_name') == 'chatglm-6b':
+        callbackHandler = CustomCallbackHandler(ws_endpoint,connectionId,msgid)
+
+        if model_name == 'chatglm-6b':
             llmcontent_handler = llmContentHandler()
             llm=SagemakerEndpoint(
                     endpoint_name=llm_endpoint, 
@@ -281,8 +310,10 @@ def handler(event, context):
                     model_kwargs={"temperature":model_params['temperature']},
                     content_handler=llmcontent_handler
                 )
-        elif model_params.get('model_name') == 'gpt-3.5-turbo' :
-            llm=ChatOpenAI(temperature=model_params['temperature'])
+        elif model_name == 'gpt-3.5-turbo' :
+            use_streaming = True
+            llm=ChatOpenAI(streaming=use_streaming, callbacks=[callbackHandler],
+                            temperature=model_params['temperature'])
         
         index_name = model_params.get('file_idx')
         if not index_name:
@@ -337,9 +368,12 @@ def handler(event, context):
             print(f'memory:{memory.load_memory_variables({})}')
             chain = ConversationChain(llm=llm,memory=memory,verbose=True,prompt=Chat_PROMPT)
             chain_results = chain.run(prompt)
+        if use_streaming:## 如果使用stream 则增加最后结束符号
+            callbackHandler.on_llm_new_token('[DONE]')
+        else:
+            print(chain_results)
+            callbackHandler.on_llm_new_token(chain_results)
 
-
-        print(chain_results)
         return {
                 'statusCode': 200,
                 'body': json.dumps(
@@ -348,69 +382,27 @@ def handler(event, context):
                             }
                     )
             }
-    elif task == 'build_idx':
-        # body = json.loads(event['body'])
-        print(event)
-        username = event['username']
-        bucket = event['bucket']
-        object = event['object']
-        model_params = event['params']
-        embedding_model = model_params.get('embedding_model_name').lower()
+    # elif task == 'build_idx':
+    #     # body = json.loads(event['body'])
+    #     print(event)
+    #     username = event['username']
+    #     bucket = event['bucket']
+    #     object = event['object']
+    #     model_params = event['params']
+    #     embedding_model = model_params.get('embedding_model_name').lower()
 
-        glue.start_job_run(JobName=os.environ.get('glue_jobname'), Arguments={"--event": json.dumps(event)})
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': json.dumps({'result': f'Build index for [{object}] with [{embedding_model}] job start' } )
-        }
-    
-        texts = []
-        #check if it is already built
-        idx_name = get_idx_from_ddb(object,embedding_model)
-        if idx_name == '':
-            raw_text = download_s3(bucket,object)
-            if not raw_text:
-                return {
-                'statusCode': 400,
-                'body':'fetch file from s3 error',
-                'headers': headers,
-            }
-            texts = build_index(raw_text)
-            bulks = math.ceil(len(texts)/BULK_SIZE)
-            docsearch_client = None
-            all_docsearch_client = get_embedding_docsearch(index_name=f'all_docs_idx_{embedding_model}',
-                                                            embedding_model=embedding_model)
-            index_name = ''
-            for i in range(bulks):
-                print(f'building bulks:[{i}]')
-                texts_chunck = texts[i*BULK_SIZE:(i+1)*BULK_SIZE]
-                if i == 0:
-                    docsearch_client = create_embedding_docsearch(texts=texts_chunck,embedding_model=embedding_model,bulk_size=BULK_SIZE)
-                    index_name = docsearch_client.index_name
-                else:
-                    docsearch_client = get_embedding_docsearch(index_name=index_name,
-                                                            embedding_model=embedding_model)
-                    docsearch_client.add_texts(texts=texts_chunck, bulk_size=BULK_SIZE)
-                #add docs to all doc idx
-                all_docsearch_client.add_texts(texts=texts_chunck, bulk_size=BULK_SIZE)
+    #     glue.start_job_run(JobName=os.environ.get('glue_jobname'), Arguments={"--event": json.dumps(event)})
+    #     return {
+    #         'statusCode': 200,
+    #         'headers': headers,
+    #         'body': json.dumps({'result': f'Build index for [{object}] with [{embedding_model}] job start' } )
+    #     }
 
-            put_idx_to_ddb(filename=object,username=username,
-                        index_name=docsearch_client.index_name,
-                            embedding_model=embedding_model)
-            put_idx_to_ddb(filename='all_docs_idx',username=username,
-                        index_name=all_docsearch_client.index_name,
-                            embedding_model=embedding_model)
-            
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': json.dumps({'result': f'Build index for [{object}] with [{embedding_model}] by user:[{username}] success' } )
-        }
       
-    elif task == 'qna':
-        return {
-                'statusCode': 200
-                }
+    # elif task == 'qna':
+    #     return {
+    #             'statusCode': 200
+    #             }
 
 
     
