@@ -29,13 +29,14 @@ export const handler = async(event) => {
             const message = data.event.message;
             const msg_type = message.message_type;
             const open_chat_id = message.chat_id;
-            const msg = JSON.parse(message.content).text;
+            // const msg = JSON.parse(message.content).text;
             const command = new PublishCommand({
                 TopicArn:topicArn,
                 Message:JSON.stringify({
                     msg_type:msg_type,
-                    msg:msg,
+                    msg:message.content,
                     open_chat_id: open_chat_id,
+                    message_id:message.message_id
                 })
             });
             try{

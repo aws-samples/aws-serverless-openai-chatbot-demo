@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: MIT-0
 import { Stack, Duration,CfnOutput,RemovalPolicy } from 'aws-cdk-lib';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
+import lambda from "aws-cdk-lib/aws-lambda";
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
 import { AttributeType, Table } from 'aws-cdk-lib/aws-dynamodb';
 import {Topic} from 'aws-cdk-lib/aws-sns';
 import subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import {LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as dotenv from 'dotenv' 
 dotenv.config()
 
@@ -59,6 +61,14 @@ export class CdkstackStack extends Stack {
         OPENAI_API_KEY:process.env.OPENAI_API_KEY,
         START_CMD:process.env.START_CMD,
         SNS_TOPIC_ARN:snsTopic.topicArn,
+        MAIN_FUN_ARN:process.env.MAIN_FUN_ARN,
+        MODEL_NAME:process.env.MODEL_NAME,
+        template_id:process.env.template_id,
+        multi_rounds:process.env.multi_rounds,
+        use_qa:process.env.use_qa,
+        max_tokens:process.env.max_tokens,
+        UPLOAD_BUCKET:process.env.UPLOAD_BUCKET,
+        temperature:process.env.temperature
       },
       runtime: Runtime.NODEJS_18_X,
     }
@@ -73,6 +83,20 @@ export class CdkstackStack extends Stack {
       timeout:Duration.minutes(5),
       ...NodejsFunctionProps,
     })
+
+    const main_fn = lambda.Function.fromFunctionArn(this,'main func',process.env.MAIN_FUN_ARN);
+    main_fn.grantInvoke(lambda_larkchat);
+    
+    const bucket = new s3.Bucket(this, 'larkBucket', {
+      removalPolicy: RemovalPolicy.DESTROY,
+      bucketName:process.env.UPLOAD_BUCKET,
+      cors:[{
+        allowedMethods: [s3.HttpMethods.GET,s3.HttpMethods.POST,s3.HttpMethods.PUT],
+        allowedOrigins: ['*'],
+        allowedHeaders: ['*'],
+      }]
+    });
+    bucket.grantReadWrite(lambda_larkchat);
 
     // Grant the Lambda function read access to the DynamoDB table
     dynamoTable.grantReadWriteData(lambda_larkchat);
