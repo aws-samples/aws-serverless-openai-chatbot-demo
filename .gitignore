@@ -23,6 +23,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
+.DS_Store
 # env
 .env

@@ -130,7 +130,7 @@ export const handler = async (event) => {
   console.log(body);
   const open_chat_id = body.open_chat_id;
   const msg_type = body.msg_type;
-  const hide_ref = process.env.hideRef === "false" ? false : true;
+  const hide_ref = process.env.hide_ref === "false" ? false : true;
   let msg = JSON.parse(body.msg);
   let textmsg;
   let imagekey;
@@ -161,7 +161,9 @@ export const handler = async (event) => {
     use_qa: process.env.use_qa === "true" ? true : false,
     multi_rounds: process.env.multi_rounds === "true" ? true : false,
     template_id: process.env.template_id??'default',
-    temperature:process.env.temperature,
+    temperature:Number(process.env.temperature),
+    use_trace:process.env.use_trace === "true" ? true : false,
+    hide_ref:hide_ref,
     system_role: "",
     system_role_prompt: "",
   };

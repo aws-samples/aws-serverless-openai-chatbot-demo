@@ -68,7 +68,9 @@ export class CdkstackStack extends Stack {
         use_qa:process.env.use_qa,
         max_tokens:process.env.max_tokens,
         UPLOAD_BUCKET:process.env.UPLOAD_BUCKET,
-        temperature:process.env.temperature
+        temperature:process.env.temperature,
+        use_trace:process.env.use_trace,
+        hideRef:process.env.hideRef
       },
       runtime: Runtime.NODEJS_18_X,
     }

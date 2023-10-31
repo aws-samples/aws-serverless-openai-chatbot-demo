@@ -24,6 +24,6 @@ dist-ssr
 *.sln
 *.sw?
 cdk.out
-
+.DS_Store
 # env
 .env
