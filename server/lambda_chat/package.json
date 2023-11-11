@@ -10,6 +10,6 @@
   "license": "ISC",
   "dependencies": {
     "env": "^0.0.2",
-    "openai": "^3.1.0"
+    "openai": "^4.17.4"
   }
 }
