@@ -107,14 +107,14 @@ const saveDynamoDb = async (chat_id, messages) => {
   }
 };
 
-const sendLarkMessage = async (open_chat_id, content) => {
+const sendLarkMessage = async (open_chat_id, content,user_id) => {
   await larkclient.im.message.create({
     params: {
       receive_id_type: "chat_id",
     },
     data: {
       receive_id: open_chat_id,
-      content: JSON.stringify({ text: content }),
+      content: JSON.stringify({ text: `<at user_id="${user_id}"></at> ${content}` }),
       msg_type: "text",
     },
   });
@@ -129,7 +129,10 @@ export const handler = async (event) => {
   const body = JSON.parse(event.Records[0].Sns.Message);
   console.log(body);
   const open_chat_id = body.open_chat_id;
+  const message_id = body.message_id;
+  const session_id = body.session_id;
   const msg_type = body.msg_type;
+  const open_id = body.open_id;
   const hide_ref = process.env.hide_ref === "false" ? false : true;
   let msg = JSON.parse(body.msg);
   let textmsg;
@@ -141,11 +144,11 @@ export const handler = async (event) => {
     const file = await getLarkfile(body.message_id, imagekey);
     console.log("resp:", file);
     const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
-    await sendLarkMessage(open_chat_id, `upload ${url}`);
+    await sendLarkMessage(open_chat_id, `upload ${url}`,open_id);
 
     return { statusCode: 200 };
   } else {
-    await sendLarkMessage(open_chat_id, `暂不支持'${msg_type}'格式的输入`);
+    await sendLarkMessage(open_chat_id, `暂不支持'${msg_type}'格式的输入`,open_id);
     return { statusCode: 200 };
   }
 
@@ -153,8 +156,8 @@ export const handler = async (event) => {
   const payload = {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ws_endpoint: "",
-    msgid: open_chat_id,
-    chat_name: open_chat_id,
+    msgid: message_id,
+    chat_name: session_id,
     prompt: textmsg,
     max_tokens: Number(process.env.max_tokens),
     model: process.env.MODEL_NAME,
@@ -181,7 +184,7 @@ export const handler = async (event) => {
     console.log(JSON.stringify(payload_json));
     const error = payload_json.errorMessage;
     if (error) {
-      await sendLarkMessage(open_chat_id, error);
+      await sendLarkMessage(open_chat_id, error,open_id);
       return {
         statusCode: 200,
       };
@@ -193,11 +196,12 @@ export const handler = async (event) => {
         txtresp = hideRefDoc(txtresp);
       }
       txtresp = txtresp.replace(/\[[^\]]*\]$/gm, ""); //去除model name 后缀
-      await sendLarkMessage(open_chat_id, txtresp);
+      await sendLarkMessage(open_chat_id, txtresp,open_id);
     } else {
       await sendLarkMessage(
         open_chat_id,
-        `internal error ${payload_json.statusCode}`
+        `internal error ${payload_json.statusCode}`,
+        open_id
       );
     }
     return {
@@ -206,7 +210,7 @@ export const handler = async (event) => {
   } catch (error) {
     console.log(JSON.stringify(error));
     text = error.message + "|" + error.stack;
-    await sendLarkMessage(open_chat_id, text);
+    await sendLarkMessage(open_chat_id, text,open_id);
     return {
       statusCode: 200,
     };

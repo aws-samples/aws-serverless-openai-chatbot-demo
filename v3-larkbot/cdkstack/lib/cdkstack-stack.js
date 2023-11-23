@@ -77,17 +77,20 @@ export class CdkstackStack extends Stack {
     const lambda_larkcallback = new NodejsFunction(this, 'larkcallback',{
       entry:join('lambda/handler_larkcallback','index.js'),
       depsLockFilePath: join('lambda/handler_larkcallback', 'package-lock.json'),
+      memorySize: 256,
       ...NodejsFunctionProps,
     })
     const lambda_larkchat = new NodejsFunction(this, 'larkchat',{
       entry:join('lambda/handler_larkchat','index.js'),
       depsLockFilePath: join('lambda/handler_larkchat', 'package-lock.json'),
       timeout:Duration.minutes(5),
+      memorySize: 256,
       ...NodejsFunctionProps,
     })
 
     const main_fn = lambda.Function.fromFunctionArn(this,'main func',process.env.MAIN_FUN_ARN);
     main_fn.grantInvoke(lambda_larkchat);
+    main_fn.grantInvoke(lambda_larkcallback);
     
     const bucket = new s3.Bucket(this, 'larkBucket', {
       removalPolicy: RemovalPolicy.DESTROY,
