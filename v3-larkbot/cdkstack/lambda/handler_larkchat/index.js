@@ -53,7 +53,7 @@ async function uploadS3(bucket, key, blob) {
   return "";
 }
 
-async function getLarkfile(message_id, filekey) {
+async function getLarkfile(message_id, filekey,type) {
   let resp;
   try {
     resp = await larkclient.im.messageResource.get({
@@ -62,7 +62,7 @@ async function getLarkfile(message_id, filekey) {
         file_key: filekey,
       },
       params: {
-        type: "image",
+        type: type,
       },
     });
   } catch (err) {
@@ -141,13 +141,20 @@ export const handler = async (event) => {
     textmsg = msg.text.replace(/^@_user\w+\s/gm, ""); //去除群里的@消息的前缀
   } else if (msg_type === "image") {
     imagekey = msg.image_key;
-    const file = await getLarkfile(body.message_id, imagekey);
+    const file = await getLarkfile(body.message_id, imagekey,msg_type);
     console.log("resp:", file);
     const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
     await sendLarkMessage(open_chat_id, `upload ${url}`,open_id);
 
     return { statusCode: 200 };
-  } else {
+  } else if (msg_type === "audio"){
+    const file_key = msg.file_key;
+    const duration = msg.duration;
+    const file = await getLarkfile(body.message_id, file_key,msg_type);
+    await sendLarkMessage(open_chat_id, `duration ${duration}`,open_id);
+  }
+  
+  else {
     await sendLarkMessage(open_chat_id, `暂不支持'${msg_type}'格式的输入`,open_id);
     return { statusCode: 200 };
   }
