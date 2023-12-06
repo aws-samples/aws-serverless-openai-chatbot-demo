@@ -8,6 +8,7 @@ import { AttributeType, Table } from 'aws-cdk-lib/aws-dynamodb';
 import {Topic} from 'aws-cdk-lib/aws-sns';
 import subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import {LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import {addAutoScaling} from './autoscalling.js';
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as dotenv from 'dotenv' 
 dotenv.config()
@@ -80,6 +81,8 @@ export class CdkstackStack extends Stack {
       memorySize: 256,
       ...NodejsFunctionProps,
     })
+    addAutoScaling(lambda_larkcallback)
+    
     const lambda_larkchat = new NodejsFunction(this, 'larkchat',{
       entry:join('lambda/handler_larkchat','index.js'),
       depsLockFilePath: join('lambda/handler_larkchat', 'package-lock.json'),
@@ -87,7 +90,7 @@ export class CdkstackStack extends Stack {
       memorySize: 256,
       ...NodejsFunctionProps,
     })
-
+    addAutoScaling(lambda_larkchat)
     const main_fn = lambda.Function.fromFunctionArn(this,'main func',process.env.MAIN_FUN_ARN);
     main_fn.grantInvoke(lambda_larkchat);
     main_fn.grantInvoke(lambda_larkcallback);

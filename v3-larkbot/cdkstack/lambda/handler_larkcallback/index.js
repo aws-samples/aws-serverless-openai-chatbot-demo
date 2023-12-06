@@ -13,27 +13,6 @@ const larkclient = new lark.Client({
     appType: lark.AppType.SelfBuild,
 });
 
-function convertToDateTime(createTime) {
-    // Convert the create_time string to a number
-    const timestamp = parseInt(createTime);
-  
-    // Create a Date object from the timestamp
-    const date = new Date(timestamp);
-  
-    // Get date components
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hours = date.getHours(); 
-    const minutes = date.getMinutes();
-    const seconds = date.getSeconds();
-  
-    // Get milliseconds
-    const milliseconds = date.getMilliseconds();
-  
-    // Return formatted string with milliseconds
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
-  }
 
 const sendFeedback = async (method,session_id,msgid,action,user) =>{
     const client = new LambdaClient();
@@ -118,7 +97,7 @@ export const handler = async(event) => {
                     },
                     data: {
                         receive_id: open_chat_id,
-                        content: JSON.stringify({text:"!!something error"}),
+                        content: JSON.stringify({ text: `<at user_id="${user_id}"></at> Internal error` }),
                         msg_type: 'text',
                     },
                 });
@@ -139,6 +118,22 @@ export const handler = async(event) => {
                 msgid=data.event.message_id,
                 action=data.event.reaction_type.emoji_type,
                 user=user_id);
+        }else if (data.header.event_type === 'im.chat.member.user.added_v1'){
+            const open_chat_id = data.event.chat_id;
+            const welcome_message = process.env.welcome_message??'👏👏👏,欢迎入群，我是小助手，可以帮您找人，问事，查价格等，有什么可以帮您'
+            data.event.users.map(async (item) =>{
+                const user_id = item.user_id.user_id;
+                await larkclient.im.message.create({
+                    params: {
+                        receive_id_type: 'chat_id',
+                    },
+                    data: {
+                        receive_id: open_chat_id,
+                        content: JSON.stringify({ text: `<at user_id="${user_id}"></at> ${welcome_message}` }),
+                        msg_type: 'text',
+                    },
+                });
+            });
         }
     }else{
         return {

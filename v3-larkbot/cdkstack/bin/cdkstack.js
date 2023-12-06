@@ -4,6 +4,9 @@ import {App}  from 'aws-cdk-lib';
 import  { CdkstackStack }  from '../lib/cdkstack-stack.js';
 import * as dotenv from 'dotenv' 
 dotenv.config()
+// console.log(process.env)
+console.log(process.env.CDK_DEFAULT_ACCOUNT)
+console.log(process.env.CDK_DEFAULT_REGION)
 
 const app = new App();
 new CdkstackStack(app, 'CdkstackStack', {

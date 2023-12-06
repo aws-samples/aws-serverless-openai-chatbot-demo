@@ -108,6 +108,7 @@ const saveDynamoDb = async (chat_id, messages) => {
 };
 
 const sendLarkMessage = async (open_chat_id, content,user_id) => {
+  try{
   await larkclient.im.message.create({
     params: {
       receive_id_type: "chat_id",
@@ -118,6 +119,9 @@ const sendLarkMessage = async (open_chat_id, content,user_id) => {
       msg_type: "text",
     },
   });
+}catch (err){
+  console.error(JSON.stringify(err))
+}
 };
 
 function hideRefDoc(chunck) {
