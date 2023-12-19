@@ -24,20 +24,15 @@ export class CdkstackStack extends Stack {
   constructor(scope, id, props) {
     super(scope, id, props);
 
-    if (!process.env.DB_TABLE) throw Error('empty environment variables');
+    // if (!process.env.DB_TABLE) throw Error('empty environment variables');
 
 
     const dynamoTable = new Table(this, 'items', {
       partitionKey: {
-        name: 'chat_id',
+        name: 'message_id',
         type: AttributeType.STRING
       },
-      tableName: process.env.DB_TABLE,
-      /**
-       *  The default removal policy is RETAIN, which means that cdk destroy will not attempt to delete
-       * the new table, and it will remain in your account until manually deleted. By setting the policy to
-       * DESTROY, cdk destroy will delete the table (even if it has data in it)
-       */
+      // tableName: process.env.DB_TABLE,
       removalPolicy: RemovalPolicy.DESTROY, // NOT recommended for production code
     });
 
@@ -55,7 +50,7 @@ export class CdkstackStack extends Stack {
         nodeModules:['openai','@larksuiteoapi/node-sdk']
       },
       environment: {
-        DB_TABLE:process.env.DB_TABLE,
+        DB_TABLE:dynamoTable.tableName,
         LARK_APPID:process.env.LARK_APPID,
         LARK_APP_SECRET:process.env.LARK_APP_SECRET,
         LARK_TOKEN:process.env.LARK_TOKEN,
@@ -75,22 +70,22 @@ export class CdkstackStack extends Stack {
       },
       runtime: Runtime.NODEJS_18_X,
     }
-    const lambda_larkcallback = new NodejsFunction(this, 'larkcallback',{
+    const lambda_larkcallback = addAutoScaling(new NodejsFunction(this, 'larkcallback',{
       entry:join('lambda/handler_larkcallback','index.js'),
       depsLockFilePath: join('lambda/handler_larkcallback', 'package-lock.json'),
       memorySize: 256,
       ...NodejsFunctionProps,
-    })
-    addAutoScaling(lambda_larkcallback)
+    }));
+    // addAutoScaling(lambda_larkcallback)
     
-    const lambda_larkchat = new NodejsFunction(this, 'larkchat',{
+    const lambda_larkchat = addAutoScaling(new NodejsFunction(this, 'larkchat',{
       entry:join('lambda/handler_larkchat','index.js'),
       depsLockFilePath: join('lambda/handler_larkchat', 'package-lock.json'),
       timeout:Duration.minutes(5),
       memorySize: 256,
       ...NodejsFunctionProps,
-    })
-    addAutoScaling(lambda_larkchat)
+    }));
+    // addAutoScaling(this,lambda_larkchat)
     const main_fn = lambda.Function.fromFunctionArn(this,'main func',process.env.MAIN_FUN_ARN);
     main_fn.grantInvoke(lambda_larkchat);
     main_fn.grantInvoke(lambda_larkcallback);
@@ -108,6 +103,7 @@ export class CdkstackStack extends Stack {
 
     // Grant the Lambda function read access to the DynamoDB table
     dynamoTable.grantReadWriteData(lambda_larkchat);
+    dynamoTable.grantReadWriteData(lambda_larkcallback);
 
     //Add the lambda subscription
     snsTopic.addSubscription( new subscriptions.LambdaSubscription(lambda_larkchat));
@@ -119,6 +115,9 @@ export class CdkstackStack extends Stack {
       restApiName: 'LarkChatbot'
     });
     api.root.addMethod('POST', new LambdaIntegration(lambda_larkcallback));
+
+    const feedback = api.root.addResource("feedback");
+    feedback.addMethod("POST",  new LambdaIntegration(lambda_larkcallback));
 
     // new CfnOutput(this, 'LarkCallbackURL', {
     //   value: `https://${api.restApiId}.execute-api.${this.region}.amazonaws.com/`,

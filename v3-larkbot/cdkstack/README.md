@@ -1,12 +1,15 @@
-# Welcome to your CDK JavaScript project
+## 说明
+- 创建消息卡片 https://open.feishu.cn/document/ukTMukTMukTM/uYzM3QjL2MzN04iNzcDN/create-message-card
 
-This is a blank project for CDK development with JavaScript.
+- 卡片结构
+文本
+分割线
+按钮
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app. The build step is not required when using JavaScript.
+- 文本变量：
+answer
+ref_text
 
-## Useful commands
-
-* `npm run test`         perform the jest unit tests
-* `cdk deploy`           deploy this stack to your default AWS account/region
-* `cdk diff`             compare deployed stack with current state
-* `cdk synth`            emits the synthesized CloudFormation template
+- 按钮变量：
+👍 action:thumbs-up
+👎 action:thumbs-down

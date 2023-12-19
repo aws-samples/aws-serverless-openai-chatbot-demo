@@ -1,8 +1,8 @@
-import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
+// import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
+// import * as appscaling from 'aws-cdk-lib/aws-applicationautoscaling';
+// import {v4 as uuidv4} from 'uuid';
 
-
-
-export function addAutoScaling(fn,minCapacity=3,maxCapacity=100){
+export function addAutoScaling(fn,minCapacity=1,maxCapacity=100){
     const alias = fn.addAlias('prod');
 
     // Create AutoScaling target
@@ -10,14 +10,9 @@ export function addAutoScaling(fn,minCapacity=3,maxCapacity=100){
     
     // Configure Target Tracking
     as.scaleOnUtilization({
-      utilizationTarget: 0.5,
+      utilizationTarget: 0.7,
       minCapacity: minCapacity,
+      maxCapacity:maxCapacity,
     });
-    
-    // // Configure Scheduled Scaling
-    // as.scaleOnSchedule('ScaleUpInTheMorning', {
-    //   schedule: autoscaling.Schedule.cron({ hour: '8', minute: '0'}),
-    //   minCapacity: 10,
-    // });
-
+    return alias
 }
