@@ -8,7 +8,7 @@ import { AttributeType, Table } from 'aws-cdk-lib/aws-dynamodb';
 import {Topic} from 'aws-cdk-lib/aws-sns';
 import subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import {LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
-import {addAutoScaling} from './autoscalling.js';
+import {addAutoScaling,addAutoScalingDDb} from './autoscalling.js';
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as dotenv from 'dotenv' 
 dotenv.config()
@@ -35,6 +35,7 @@ export class CdkstackStack extends Stack {
       // tableName: process.env.DB_TABLE,
       removalPolicy: RemovalPolicy.DESTROY, // NOT recommended for production code
     });
+    addAutoScalingDDb(dynamoTable);
 
     // Create sns Topic
     const snsTopic = new Topic(this, 'Topic', {
@@ -47,7 +48,7 @@ export class CdkstackStack extends Stack {
           '@aws-sdk', // Use the 'aws-sdk' available in the Lambda runtime
           // '@aws-sdk/client-sns'
         ],
-        nodeModules:['openai','@larksuiteoapi/node-sdk']
+        nodeModules:['@larksuiteoapi/node-sdk','axios']
       },
       environment: {
         DB_TABLE:dynamoTable.tableName,
@@ -66,7 +67,9 @@ export class CdkstackStack extends Stack {
         UPLOAD_BUCKET:process.env.UPLOAD_BUCKET,
         temperature:process.env.temperature,
         use_trace:process.env.use_trace,
-        hideRef:process.env.hideRef
+        hideRef:process.env.hideRef,
+        welcome_message:process.env.welcome_message,
+        disclaimer:process.env.disclaimer,
       },
       runtime: Runtime.NODEJS_18_X,
     }

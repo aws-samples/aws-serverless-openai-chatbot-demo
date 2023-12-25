@@ -13,6 +13,9 @@ import {
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
+import * as axios from "axios";
+const FormData = require('form-data');
+const crypto = require('crypto');
 
 const MAX_SEQ = 10;
 const dbclient = new DynamoDBClient();
@@ -48,7 +51,7 @@ async function uploadS3(bucket, key, blob) {
   return "";
 }
 
-async function getLarkfile(message_id, filekey,type) {
+async function getLarkfile(message_id, filekey, type) {
   let resp;
   try {
     resp = await larkclient.im.messageResource.get({
@@ -97,24 +100,100 @@ const saveDynamoDb = async (key, payload) => {
   const command = new PutItemCommand(params);
   try {
     const results = await dbclient.send(command);
-    console.log("Items saved success",results);
+    console.log("Items saved success", results);
   } catch (err) {
     console.error(err);
   }
 }
 
+function generateMD5(text) {
+  const hash = crypto.createHash('md5');
+  hash.update(text);
+  return hash.digest('hex');
+}
+
+//get tenant acecss token
+async function getTenantAccessToken() {
+  const cred_data = JSON.stringify({
+    "app_id": process.env.LARK_APPID,
+    "app_secret": process.env.LARK_APP_SECRET
+  });
+  try {
+    const tokenRes = await axios.post('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
+      cred_data,
+      { headers: { 'Content-Type': 'application/json' } });
+    // console.log(tokenRes.data);
+    if (tokenRes?.data.code === 0) {
+      return tokenRes.data.tenant_access_token;
+    }
+    else {
+      return null;
+    }
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+//Download a image from Url and upload to feishu, return the image_key
+async function generateImageKey(url, token) {
+  console.log(`call generateImageKey:${url},${token}`)
+  try {
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const imageData = response.data;
+    console.log(`imageData:${imageData.length}`)
+    try {
+      let data = new FormData();
+      data.append('image_type', 'message');
+      data.append('image', imageData);
+      const headers = {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`,
+      };
+      const uploadRes = await axios.post('https://open.feishu.cn/open-apis/im/v1/images',
+        data,
+        { headers });
+      console.log(uploadRes.data);
+      return uploadRes.data.data.image_key;
+    } catch (error) {
+      console.error(`${url} image upload:`, error);
+      return null;
+    }
+
+  } catch (error) {
+    console.error(`${url} image download:`, error);
+    return null
+  }
+}
+
 // 发送lark 卡片消息
-const sendLarkCard = async (open_chat_id, content,user_id,ref_text) =>{
+const sendLarkCard = async (open_chat_id, content, user_id, useTime) => {
+  const disclaimer = process.env.disclaimer;
   const card_template = {
     "config": {
-      "wide_screen_mode": true,
       "enable_forward": true,
       "update_multi": true
     },
     "elements": [
       {
         "tag": "markdown",
-        "content": `<at user_id="${user_id}"></at> ${content}`
+        "content": `<at id="${user_id}"></at> ${content}`
+      },
+      {
+        "tag": "note",
+        "elements": [
+          {
+            "tag": "img",
+            "img_key": "img_v2_041b28e3-5680-48c2-9af2-497ace79333g",
+            "alt": {
+              "tag": "plain_text",
+              "content": ""
+            }
+          },
+          {
+            "tag": "plain_text",
+            "content": `⏱️${useTime}s. ${disclaimer}`
+          }
+        ]
       },
       {
         "tag": "action",
@@ -151,6 +230,17 @@ const sendLarkCard = async (open_chat_id, content,user_id,ref_text) =>{
             "value": {
               "checkref": 'click'
             }
+          },
+          {
+            "tag": "button",
+            "text": {
+              "tag": "plain_text",
+              "content": "新对话"
+            },
+            "type": "primary",
+            "value": {
+              "clear": 'click'
+            }
           }
         ]
       }
@@ -158,18 +248,19 @@ const sendLarkCard = async (open_chat_id, content,user_id,ref_text) =>{
     "header": {
       "template": "blue",
       "title": {
-        "content": "SSO小助手回复",
+        "content": "SSO小助手",
         "tag": "plain_text"
       }
     }
   };
-  let card_json = {...card_template};
+  let card_json = { ...card_template };
 
   //如果是对话已清空
-  if (content === '历史对话已清空'){
-    card_json = {...card_template,elements:[card_template.elements[0]]};
-  }
-  try{
+  if (content === '历史对话已清空') {
+    card_json = { ...card_template, elements: [card_template.elements[0]] };
+  } 
+  // console.log(card_json);
+  try {
     const resp = await larkclient.im.message.create({
       params: {
         receive_id_type: "chat_id",
@@ -180,13 +271,13 @@ const sendLarkCard = async (open_chat_id, content,user_id,ref_text) =>{
         msg_type: "interactive",
       },
     });
-    if (resp.code === 0){
-        return {"card_message_id":resp.data.message_id,"card_template":card_json};
-    }else{
+    if (resp.code === 0) {
+      return { "card_message_id": resp.data.message_id, "card_template": card_json };
+    } else {
       console.error(resp.msg);
       return null;
     }
-  }catch (err){
+  } catch (err) {
     console.error(JSON.stringify(err));
     return null;
   }
@@ -195,8 +286,8 @@ const sendLarkCard = async (open_chat_id, content,user_id,ref_text) =>{
 
 
 // 发送lark 文本消息
-const sendLarkText = async (open_chat_id, content,user_id) => {
-  try{
+const sendLarkText = async (open_chat_id, content, user_id) => {
+  try {
     await larkclient.im.message.create({
       params: {
         receive_id_type: "chat_id",
@@ -207,53 +298,144 @@ const sendLarkText = async (open_chat_id, content,user_id) => {
         msg_type: "text",
       },
     });
-  }catch (err){
+  } catch (err) {
     console.error(JSON.stringify(err))
   }
 }
 
 
 
-const sendLarkMessage = async (open_chat_id, content,user_id,chat_type,message_id,session_id) => {
+const sendLarkMessage = async (open_chat_id, content, user_id, chat_type, message_id, session_id,useTime) => {
+  let ref_doc = extractRefDoc(content)
+  let response = hideRefDoc(content);
+  const { imageLinks, cleanedText } = processImagesInMd(response);
+  let imageKeys = [];
+  //如果存在图片链接，则获取accesstoken，并上传图片到飞书，获取key
+  let accessToken;
+  for (let i =0 ; i < imageLinks.length; i++){
+    const url = imageLinks[i];
+    const url_key = `url_${generateMD5(url)}`;
+    // console.log(`url:${url}\nurl_key:${url_key}`);
 
-  const ref_doc = extractRefDoc(content)
-  const response = hideRefDoc(content);
+    const cached = await queryDynamoDb(url_key);
+    // console.log(`cached:${cached}`);
 
-  //如果是群聊，则回复text，@用户
-  // if (chat_type === 'group'){
-  //     await sendLarkText(open_chat_id, response,user_id);
-  //     await saveDynamoDb(message_id,{"session_id":session_id,});
+    if (cached) {
+      const image_key = cached.image_key;
+      imageKeys.push(image_key);
 
-  // }else{ 
+      //lark md图片支持格式为![hover_text](image_key)
+      response = response.replace(url,image_key);
+      ref_doc = ref_doc.replace(url,image_key);
+    } else {
+      accessToken = accessToken ?? await getTenantAccessToken();
+      const image_key = await generateImageKey(url, accessToken);
+      console.log(`url:${url}\nimage_key:${image_key}`);
+      if (image_key) {
+        imageKeys.push(image_key);
+        //lark md图片支持格式为![hover_text](image_key)
+        response = response.replace(url,image_key);
+        ref_doc = ref_doc.replace(url,image_key);
+        await saveDynamoDb(url_key, { image_key: image_key });
+      }else{
+        //如果上传失败，需要把![]()替换成链接格式![]()，否则lark会报错
+        response = replaceImagesLinksInMd(response);
+        ref_doc = replaceImagesLinksInMd(ref_doc);
+      }
+    }
+  }
+  // console.log(`imageKeys:${imageKeys}`);
 
-     const resp = await sendLarkCard(open_chat_id, response,user_id,'');
-     if (resp){
-       //session id 是自定义的，message id是 lark生成的，所以需要保存message到ddb，用于关联messageid和session id
-       await saveDynamoDb(resp.card_message_id,{"session_id":session_id,"up_message_id":message_id,"ref_doc":ref_doc,"card_template":resp.card_template});
-     }
 
-  // }
+  const resp = await sendLarkCard(open_chat_id, response, user_id, useTime);
+  if (resp) {
+    const timestamp = new Date()
+    //session id 是自定义的，message id是 lark生成的，所以需要保存message到ddb，用于关联messageid和session id
+    await saveDynamoDb(resp.card_message_id, { "session_id": session_id, "timestamp":timestamp.toString(),"up_message_id": message_id,"chat_type":chat_type, "ref_doc": ref_doc, "card_template": resp.card_template });
+  }
 };
 
 function extractRefDoc(chunck) {
   const fullRefRegex = /\W{2}Refer to \d+ knowledge:\W{2}\n\n/gm;
   const pos = chunck.search(fullRefRegex);
-  if (pos > -1){
-      return chunck.slice(pos).trim()
-  }else{
-      return ''
+  if (pos > -1) {
+    return chunck.slice(pos).trim()
+  } else {
+    return ''
   }
 }
 
 function hideRefDoc(chunck) {
   const fullRefRegex = /\W{2}Refer to \d+ knowledge:\W{2}\n\n/gm;
   const pos = chunck.search(fullRefRegex);
-  if (pos > -1){
-      return chunck.slice(0,pos).trim()
-  }else{
-      return chunck
+  if (pos > -1) {
+    return chunck.slice(0, pos).trim()
+  } else {
+    return chunck
   }
 }
+
+//从md中解析出url
+function processImagesInMd(markdownText) {
+  const regex = /!\[.*?\]\((.*?)\)/g;
+  const imageLinks = [];
+  let match;
+
+  while ((match = regex.exec(markdownText)) !== null) {
+    const imageUrl = match[1];
+    imageLinks.push(imageUrl);
+  }
+  const cleanedText = markdownText.replace(regex, '');
+  return { 'imageLinks': imageLinks, 'cleanedText': cleanedText }
+}
+
+function replaceImagesLinksInMd(markdownText) {
+  const regex = /!\[.*?\]\((.*?)\)/g;
+  const imageLinks = [];
+  let match;
+
+  while ((match = regex.exec(markdownText)) !== null) {
+    const imageUrl = match[0];
+    imageLinks.push(imageUrl);
+  }
+  let replacedText = markdownText;
+
+  //去掉第一个！即可
+  imageLinks.map(link => (replacedText = replacedText.replace(link,link.slice(1))))
+  return replacedText;
+}
+
+
+//下载图片文件并上传， lark image.create接口有问题，换成axios
+// async function downloadImage(url){
+//   try {
+//     const response = await axios.get(url, { responseType: 'arraybuffer' });
+//     const imageData = response.data;
+
+//     try {
+//       const uploadRes = await larkclient.im.image.create({
+//               data: {
+//                   image_type: 'message',
+//                   image: imageData,
+//               },
+//           });
+//       if (uploadRes?.code === 0){
+//           return uploadRes.image_key;
+//       }else{
+//         return null;
+//       }
+//     }catch(error){
+//       console.error(`${url} image upload:`, error);
+//       return null;
+//     }
+//   } catch (error) {
+//     console.error(`${url} image download:`, error);
+//     return null
+//   }
+// };
+
+
+
 
 export const handler = async (event) => {
   const body = JSON.parse(event.Records[0].Sns.Message);
@@ -261,11 +443,12 @@ export const handler = async (event) => {
   const open_chat_id = body.open_chat_id;
   const message_id = body.message_id;
   const session_id = body.session_id;
+  const user_id = body.user_id;
   const msg_type = body.msg_type;
   const open_id = body.open_id;
   const chat_type = body.chat_type;
   const hide_ref = false; //process.env.hide_ref === "false" ? false : true;
-  
+
 
   let msg = JSON.parse(body.msg);
   let textmsg;
@@ -274,21 +457,21 @@ export const handler = async (event) => {
     textmsg = msg.text.replace(/^@_user\w+\s/gm, ""); //去除群里的@消息的前缀
   } else if (msg_type === "image") {
     imagekey = msg.image_key;
-    const file = await getLarkfile(body.message_id, imagekey,msg_type);
+    const file = await getLarkfile(body.message_id, imagekey, msg_type);
     console.log("resp:", file);
     const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
-    await sendLarkMessage(open_chat_id, `upload ${url}`,open_id,chat_type,message_id,session_id);
+    await sendLarkMessage(open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
 
     return { statusCode: 200 };
-  } else if (msg_type === "audio"){
+  } else if (msg_type === "audio") {
     const file_key = msg.file_key;
     const duration = msg.duration;
-    const file = await getLarkfile(body.message_id, file_key,msg_type);
-    await sendLarkMessage(open_chat_id, `duration ${duration}`,open_id,chat_type,message_id,session_id);
+    const file = await getLarkfile(body.message_id, file_key, msg_type);
+    await sendLarkMessage(open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
   }
-  
+
   else {
-    await sendLarkMessage(open_chat_id, `暂不支持'${msg_type}'格式的输入`,open_id,chat_type,message_id,session_id);
+    await sendLarkMessage(open_chat_id, `暂不支持'${msg_type}'格式的输入`, open_id, chat_type, message_id, session_id);
     return { statusCode: 200 };
   }
 
@@ -297,16 +480,17 @@ export const handler = async (event) => {
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     ws_endpoint: "",
     msgid: message_id,
+    user_id: user_id,
     chat_name: session_id,
     prompt: textmsg,
     max_tokens: Number(process.env.max_tokens),
     model: process.env.MODEL_NAME,
     use_qa: process.env.use_qa === "true" ? true : false,
     multi_rounds: process.env.multi_rounds === "true" ? true : false,
-    template_id: process.env.template_id??'default',
-    temperature:Number(process.env.temperature),
-    use_trace:process.env.use_trace === "true" ? true : false,
-    hide_ref:hide_ref,
+    template_id: process.env.template_id ?? 'default',
+    temperature: Number(process.env.temperature),
+    use_trace: process.env.use_trace === "true" ? true : false,
+    hide_ref: hide_ref,
     system_role: "",
     system_role_prompt: "",
   };
@@ -324,7 +508,7 @@ export const handler = async (event) => {
     console.log(JSON.stringify(payload_json));
     const error = payload_json.errorMessage;
     if (error) {
-      await sendLarkMessage(open_chat_id, error,open_id,chat_type,message_id,session_id);
+      await sendLarkMessage(open_chat_id, error, open_id, chat_type, message_id, session_id);
       return {
         statusCode: 200,
       };
@@ -332,8 +516,11 @@ export const handler = async (event) => {
     const body = payload_json.body;
     if (payload_json.statusCode == 200) {
       let txtresp = body[0].choices[0].text.trimStart();
-      
-      await sendLarkMessage(open_chat_id, txtresp,open_id,chat_type,message_id,session_id);
+      const useTime = body[0].useTime.toFixed(1);
+      if (txtresp !== '历史对话已清空'){
+        await sendLarkMessage(open_chat_id, txtresp, open_id, chat_type, message_id, session_id,useTime);
+      }
+
     } else {
       await sendLarkMessage(
         open_chat_id,
@@ -350,7 +537,7 @@ export const handler = async (event) => {
   } catch (error) {
     console.log(JSON.stringify(error));
     const text = error.message + "|" + error.stack;
-    await sendLarkMessage(open_chat_id, text,open_id,chat_type,message_id,session_id);
+    await sendLarkMessage(open_chat_id, text, open_id, chat_type, message_id, session_id);
     return {
       statusCode: 200,
     };

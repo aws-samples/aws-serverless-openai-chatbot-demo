@@ -61,32 +61,38 @@ const queryDynamoDb = async (key) => {
 // update lark 卡片消息
 const updateLarkCard = ({card_template, actions, ref_doc}) =>{
     let card_json = {...card_template};
+    const actionElement = card_json.elements.filter((ele)=>{
+      return ele.tag === "action"
+    })
     if (actions.thumbup === 'click'){
-        card_json.elements[1].actions[0].text.content = "已赞😊";  //改变状态是已赞
-        card_json.elements[1].actions[0].value.thumbup = "cancel"; //再点击就是cancel操作
-        card_json.elements[1].actions[1].text.content = "👎";  //恢复点踩状态
-        card_json.elements[1].actions[1].value.thumbdown = "click"; //恢复点踩状态
+        actionElement[0].actions[0].text.content = "已赞😊";  //改变状态是已赞
+        actionElement[0].actions[0].value.thumbup = "cancel"; //再点击就是cancel操作
+        actionElement[0].actions[1].text.content = "👎";  //恢复点踩状态
+        actionElement[0].actions[1].value.thumbdown = "click"; //恢复点踩状态
     } else if (actions.thumbdown === 'click'){
-        card_json.elements[1].actions[1].text.content = "已踩😭";  //改变状态是已赞
-        card_json.elements[1].actions[1].value.thumbdown = "cancel"; //再点击就是cancel操作
-        card_json.elements[1].actions[0].text.content = "👍";  //恢复初始状态
-        card_json.elements[1].actions[0].value.thumbup = "click"; //恢复初始状态
+        actionElement[0].actions[1].text.content = "已踩😭";  //改变状态是已赞
+        actionElement[0].actions[1].value.thumbdown = "cancel"; //再点击就是cancel操作
+        actionElement[0].actions[0].text.content = "👍";  //恢复初始状态
+        actionElement[0].actions[0].value.thumbup = "click"; //恢复初始状态
     }else if (actions.thumbup === 'cancel'){
-        card_json.elements[1].actions[0].text.content = "👍";  //恢复初始状态
-        card_json.elements[1].actions[0].value.thumbup = "click"; //恢复初始状态
+        actionElement[0].actions[0].text.content = "👍";  //恢复初始状态
+        actionElement[0].actions[0].value.thumbup = "click"; //恢复初始状态
     }else if (actions.thumbdown === 'cancel'){
-        card_json.elements[1].actions[1].text.content = "👎";  //改变状态是已赞
-        card_json.elements[1].actions[1].value.thumbdown = "click"; //再点击就是cancel操作
+        actionElement[0].actions[1].text.content = "👎";  //改变状态是已赞
+        actionElement[0].actions[1].value.thumbdown = "click"; //再点击就是cancel操作
     }else if (actions.checkref === 'click'){
-        card_json.elements[1].actions[2].text.content = "隐藏引用";  //改变状态是已赞
-        card_json.elements[1].actions[2].value.checkref = "cancel";  //改变状态是已赞
-        card_json.elements.splice(2,0,{ "tag": "hr"}); //从索引2处，删除0个元素，插入 分割线
-        card_json.elements.splice(3,0,{ "tag": "markdown", "content":ref_doc }); //从索引3处，删除0个元素，插入 ref doc
+        actionElement[0].actions[2].text.content = "隐藏引用";  //改变状态是已赞
+        actionElement[0].actions[2].value.checkref = "cancel";  //改变状态是已赞
+        card_json.elements.splice(3,0,{ "tag": "hr"}); //从索引3处，删除0个元素，插入 分割线
+        card_json.elements.splice(4,0,{ "tag": "markdown", "content":ref_doc }); //从4处，删除0个元素，插入 ref doc
     }else if (actions.checkref === 'cancel'){
-        card_json.elements[1].actions[2].text.content = "查看引用";  //改变状态是已赞
-        card_json.elements[1].actions[2].value.checkref = "click";  //改变状态是已赞
-        card_json.elements.splice(3,1); //从索引3处，删除ref doc
-        card_json.elements.splice(2,1); //从索引2处，删除分割线
+        actionElement[0].actions[2].text.content = "查看引用";  //改变状态是已赞
+        actionElement[0].actions[2].value.checkref = "click";  //改变状态是已赞
+        card_json.elements.splice(-1,1); //从最后一个索引处，删除ref doc
+        card_json.elements.splice(-1,1); //从最后一个索引处，删除分割线
+    }else if (actions.clear === 'click'){
+        actionElement[0].actions[3].text.content = "对话历史已清空";  //改变状态是已赞
+        actionElement[0].actions[3].value.clear = "cancel";
     }
     return card_json;
 }
@@ -131,8 +137,40 @@ const sendFeedback = async ({method,session_id,msgid,action,user}) =>{
           await client.send(command);
           console.log('update feedback:',payload)
     }catch(error){
-        console.error(JSON.stringify(error));
+        console.error('update feedback error',JSON.stringify(error));
     }
+}
+
+const sendChatMesage = async ({msg_type,msg,chat_type,open_id,open_chat_id,user_id,msgid}) =>{
+  const command = new PublishCommand({
+    TopicArn:topicArn,
+    Message:JSON.stringify({
+        msg_type:msg_type,
+        msg:msg,
+        session_id:`lark_chat_${chat_type}_${open_chat_id}_${user_id}`,
+        open_chat_id: open_chat_id,
+        message_id:msgid,
+        user_id:user_id,
+        open_id:open_id,
+        chat_type:chat_type
+    })
+});
+
+try{
+     await snsclient.send(command);
+}catch(err){
+    console.log(JSON.stringify(err));
+    await larkclient.im.message.create({
+        params: {
+            receive_id_type: 'chat_id',
+        },
+        data: {
+            receive_id: open_chat_id,
+            content: JSON.stringify({ text: `<at user_id="${user_id}"></at> Internal error` }),
+            msg_type: 'text',
+        },
+    });
+}
 }
 
 export const handler = async(event) => {
@@ -152,12 +190,15 @@ export const handler = async(event) => {
 
         const user_id = data.user_id;
         const open_message_id = data.open_message_id;
+        const open_chat_id = data.open_chat_id;
+        const open_id = data.open_id;
         const dbret = await queryDynamoDb(open_message_id);
         const session_id = dbret.session_id;
-        console.log(dbret);
+        console.log('dbret:',dbret);
         const actions = {thumbup:data.action.value?.thumbup,
                           thumbdown:data.action.value?.thumbdown,
                           checkref:data.action.value?.checkref,
+                          clear:data.action.value?.clear,
                           }
         console.log('actions:',actions);
         if (actions.thumbup === 'click' || actions.thumbdown === 'click'){//点赞或者点踩
@@ -166,6 +207,9 @@ export const handler = async(event) => {
         }else if (actions.thumbup === 'cancel' || actions.thumbdown === 'cancel'){//取消点赞或者点踩
             const action = actions.thumbup === 'cancel' ?'thumbs-up':'thumbs-down';
             await sendFeedback({method:'delete',session_id:session_id,msgid:dbret.up_message_id,action:action,user:user_id});
+        }else if (actions.clear === 'click'){
+            await sendChatMesage ({msg_type:'text',
+              msg:JSON.stringify({"text":"/rs"}),chat_type:dbret.chat_type,open_id,open_chat_id,user_id,msgid:dbret.up_message_id});
         }
         const updated_card = updateLarkCard({card_template:dbret.card_template,
           actions:actions,
@@ -207,6 +251,7 @@ export const handler = async(event) => {
                     session_id:`lark_chat_${chat_type}_${open_chat_id}_${user_id}`,
                     open_chat_id: open_chat_id,
                     message_id:message.message_id,
+                    user_id:user_id,
                     open_id:open_id,
                     chat_type:chat_type
                 })
@@ -249,18 +294,37 @@ export const handler = async(event) => {
                 user:user_id});
         }else if (data.header.event_type === 'im.chat.member.user.added_v1'){
             const open_chat_id = data.event.chat_id;
-            const welcome_message = process.env.welcome_message??'👏👏👏,欢迎入群，我是小助手，可以帮您找人，问事，查价格等，有什么可以帮您'
-            data.event.users.map(async (item) =>{
-                const user_id = item.user_id.user_id;
+            const welcome_message = process.env.welcome_message??'👏👏👏🎉🎉🎉,欢迎入群，我是SSO小助手，我是基于AWS Bedrock开发的人工智能助手，我可以帮您提供日常工作中的常见内部流程咨询，CI知识查询，EC2价格查询等。例如，您可以问我，提FOOB ticket的链接是什么？'
+            data.event.users.map(async (user) =>{
+                const user_id = user.user_id.user_id;
+                const card_json = {
+                  "config": {
+                    "enable_forward": true,
+                    "update_multi": true
+                  },
+                  "elements": [
+                    {
+                      "tag": "markdown",
+                      "content": `<at id="${user_id}"></at> ${welcome_message}`
+                    },
+                  ],
+                  "header": {
+                    "template": "blue",
+                    "title": {
+                      "content": "SSO小助手回复",
+                      "tag": "plain_text"
+                    }
+                  }
+                };
                 await larkclient.im.message.create({
-                    params: {
-                        receive_id_type: 'chat_id',
-                    },
-                    data: {
-                        receive_id: open_chat_id,
-                        content: JSON.stringify({ text: `<at user_id="${user_id}"></at> ${welcome_message}` }),
-                        msg_type: 'text',
-                    },
+                  params: {
+                    receive_id_type: "chat_id",
+                  },
+                  data: {
+                    receive_id: open_chat_id,
+                    content: JSON.stringify(card_json),
+                    msg_type: "interactive",
+                  },
                 });
             });
         }

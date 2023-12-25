@@ -10,7 +10,6 @@
   "author": "",
   "license": "MIT-0",
   "dependencies": {
-    "@larksuiteoapi/node-sdk": "^1.12.0",
-    "openai": "^3.2.1"
+    "@larksuiteoapi/node-sdk": "^1.12.0"
   }
 }
