@@ -294,7 +294,7 @@ export const handler = async(event) => {
                 user:user_id});
         }else if (data.header.event_type === 'im.chat.member.user.added_v1'){
             const open_chat_id = data.event.chat_id;
-            const welcome_message = process.env.welcome_message??'👏👏👏🎉🎉🎉,欢迎入群，我是SSO小助手，我是基于AWS Bedrock开发的人工智能助手，我可以帮您提供日常工作中的常见内部流程咨询，CI知识查询，EC2价格查询等。例如，您可以问我，提FOOB ticket的链接是什么？'
+            const welcome_message = process.env.welcome_message??'👏👏👏🎉🎉🎉,欢迎入群，我是SSO小助手，我是基于AWS Bedrock开发的人工智能助手，我可以帮您提供日常工作中的常见内部流程咨询，CI知识查询，EC2价格查询，网络搜索等。例如，您可以问我，提FOOB ticket的链接是什么？😊'
             data.event.users.map(async (user) =>{
                 const user_id = user.user_id.user_id;
                 const card_json = {
@@ -311,7 +311,7 @@ export const handler = async(event) => {
                   "header": {
                     "template": "blue",
                     "title": {
-                      "content": "SSO小助手回复",
+                      "content": "SSO小助手",
                       "tag": "plain_text"
                     }
                   }

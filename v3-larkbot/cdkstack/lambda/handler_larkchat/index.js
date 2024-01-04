@@ -171,7 +171,7 @@ const sendLarkCard = async (open_chat_id, content, user_id, useTime) => {
   const card_template = {
     "config": {
       "enable_forward": true,
-      "update_multi": true
+      "update_multi": false
     },
     "elements": [
       {
@@ -181,14 +181,6 @@ const sendLarkCard = async (open_chat_id, content, user_id, useTime) => {
       {
         "tag": "note",
         "elements": [
-          {
-            "tag": "img",
-            "img_key": "img_v2_041b28e3-5680-48c2-9af2-497ace79333g",
-            "alt": {
-              "tag": "plain_text",
-              "content": ""
-            }
-          },
           {
             "tag": "plain_text",
             "content": `⏱️${useTime}s. ${disclaimer}`
@@ -356,7 +348,7 @@ const sendLarkMessage = async (open_chat_id, content, user_id, chat_type, messag
 };
 
 function extractRefDoc(chunck) {
-  const fullRefRegex = /\W{2}Refer to \d+ knowledge:\W{2}\n\n/gm;
+  const fullRefRegex = /\W{2}Refer to \d+ knowledge:\W{2}/gm;
   const pos = chunck.search(fullRefRegex);
   if (pos > -1) {
     return chunck.slice(pos).trim()
@@ -366,7 +358,7 @@ function extractRefDoc(chunck) {
 }
 
 function hideRefDoc(chunck) {
-  const fullRefRegex = /\W{2}Refer to \d+ knowledge:\W{2}\n\n/gm;
+  const fullRefRegex = /\W{2}Refer to \d+ knowledge:\W{2}/gm;
   const pos = chunck.search(fullRefRegex);
   if (pos > -1) {
     return chunck.slice(0, pos).trim()
