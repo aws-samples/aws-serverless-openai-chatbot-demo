@@ -14,19 +14,40 @@ import {
 } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import * as axios from "axios";
+import { SQSClient, DeleteMessageCommand } from "@aws-sdk/client-sqs"; 
+
 const FormData = require('form-data');
 const crypto = require('crypto');
 
 const MAX_SEQ = 10;
 const dbclient = new DynamoDBClient();
+// const sqsClient = new SQSClient();
+// const queueUrl = process.env.queueUrl;
+
+const initLarkClients = () => {
+  const lark_tokens = process.env.LARK_TOKEN.split(',');
+  const appIds = process.env.LARK_APPID.split(',');
+  const appSecrets = process.env.LARK_APP_SECRET.split(',');
+  let clients_map = {};
+  for (let i = 0; i < appIds.length; i++) {
+    const client = new lark.Client({
+      appId: appIds[i],
+      appSecret: appSecrets[i],
+      appType: lark.AppType.SelfBuild,
+      disableTokenCache: false,
+    });
+    clients_map = { ...clients_map, [appIds[i]]: client };
+  }
+  return clients_map
+}
 
 
-const larkclient = new lark.Client({
-  appId: process.env.LARK_APPID,
-  appSecret: process.env.LARK_APP_SECRET,
-  appType: lark.AppType.SelfBuild,
-  disableTokenCache: false,
-});
+// const larkclient = new lark.Client({
+//   appId: process.env.LARK_APPID,
+//   appSecret: process.env.LARK_APP_SECRET,
+//   appType: lark.AppType.SelfBuild,
+//   disableTokenCache: false,
+// });
 const s3Client = new S3Client();
 const dynamodb_tb = process.env.DB_TABLE;
 
@@ -166,12 +187,12 @@ async function generateImageKey(url, token) {
 }
 
 // 发送lark 卡片消息
-const sendLarkCard = async (open_chat_id, content, user_id, useTime) => {
+const sendLarkCard = async (larkclient,open_chat_id, content, user_id, useTime) => {
   const disclaimer = process.env.disclaimer;
   const card_template = {
     "config": {
       "enable_forward": true,
-      "update_multi": false
+      "update_multi": true
     },
     "elements": [
       {
@@ -278,7 +299,7 @@ const sendLarkCard = async (open_chat_id, content, user_id, useTime) => {
 
 
 // 发送lark 文本消息
-const sendLarkText = async (open_chat_id, content, user_id) => {
+const sendLarkText = async (larkclient,open_chat_id, content, user_id) => {
   try {
     await larkclient.im.message.create({
       params: {
@@ -297,7 +318,7 @@ const sendLarkText = async (open_chat_id, content, user_id) => {
 
 
 
-const sendLarkMessage = async (open_chat_id, content, user_id, chat_type, message_id, session_id,useTime) => {
+const sendLarkMessage = async (lark_client,open_chat_id, content, user_id, chat_type, message_id, session_id,useTime) => {
   let ref_doc = extractRefDoc(content)
   let response = hideRefDoc(content);
   const { imageLinks, cleanedText } = processImagesInMd(response);
@@ -339,7 +360,7 @@ const sendLarkMessage = async (open_chat_id, content, user_id, chat_type, messag
   // console.log(`imageKeys:${imageKeys}`);
 
 
-  const resp = await sendLarkCard(open_chat_id, response, user_id, useTime);
+  const resp = await sendLarkCard(lark_client,open_chat_id, response, user_id, useTime);
   if (resp) {
     const timestamp = new Date()
     //session id 是自定义的，message id是 lark生成的，所以需要保存message到ddb，用于关联messageid和session id
@@ -426,11 +447,21 @@ function replaceImagesLinksInMd(markdownText) {
 //   }
 // };
 
-
+// const deleteSqsMessage = async (event) =>{
+//       //delete messasge from queue
+//       const deleteParams = {
+//         QueueUrl: queueUrl,
+//         ReceiptHandle: event.Records[0].receiptHandle
+//       };
+//       const command = new DeleteMessageCommand(deleteParams);
+//       const response = await sqsClient.send(command);
+//       console.log('Message deleted from the queue,',response);
+// }
 
 
 export const handler = async (event) => {
   const body = JSON.parse(event.Records[0].Sns.Message);
+  // const body = JSON.parse(event.Records[0].body);
   console.log(body);
   const open_chat_id = body.open_chat_id;
   const message_id = body.message_id;
@@ -440,30 +471,35 @@ export const handler = async (event) => {
   const open_id = body.open_id;
   const chat_type = body.chat_type;
   const hide_ref = false; //process.env.hide_ref === "false" ? false : true;
-
+  const app_id = body.app_id;
+  const lark_clients_map = initLarkClients();
+  const lark_client = lark_clients_map[app_id];
 
   let msg = JSON.parse(body.msg);
   let textmsg;
   let imagekey;
   if (msg_type == "text") {
-    textmsg = msg.text.replace(/^@_user\w+\s/gm, ""); //去除群里的@消息的前缀
+    textmsg = msg.text.replace(/@_user\w+\s?/gm, ""); //去除群里的@消息的前缀
   } else if (msg_type === "image") {
     imagekey = msg.image_key;
     const file = await getLarkfile(body.message_id, imagekey, msg_type);
     console.log("resp:", file);
     const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
-    await sendLarkMessage(open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
-
+    await sendLarkMessage(lark_client,open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
+    // await deleteSqsMessage(event);
     return { statusCode: 200 };
   } else if (msg_type === "audio") {
     const file_key = msg.file_key;
     const duration = msg.duration;
     const file = await getLarkfile(body.message_id, file_key, msg_type);
-    await sendLarkMessage(open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(lark_client,open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
+    // await deleteSqsMessage(event);
+    return { statusCode: 200 };
   }
 
   else {
-    await sendLarkMessage(open_chat_id, `暂不支持'${msg_type}'格式的输入`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(lark_client,open_chat_id, `暂不支持'${msg_type}'格式的输入`, open_id, chat_type, message_id, session_id);
+    // await deleteSqsMessage(event);
     return { statusCode: 200 };
   }
 
@@ -500,7 +536,8 @@ export const handler = async (event) => {
     console.log(JSON.stringify(payload_json));
     const error = payload_json.errorMessage;
     if (error) {
-      await sendLarkMessage(open_chat_id, error, open_id, chat_type, message_id, session_id);
+      await sendLarkMessage(lark_client,open_chat_id, error, open_id, chat_type, message_id, session_id);
+      // await deleteSqsMessage(event);
       return {
         statusCode: 200,
       };
@@ -510,11 +547,13 @@ export const handler = async (event) => {
       let txtresp = body[0].choices[0].text.trimStart();
       const useTime = body[0].useTime.toFixed(1);
       if (txtresp !== '历史对话已清空'){
-        await sendLarkMessage(open_chat_id, txtresp, open_id, chat_type, message_id, session_id,useTime);
+        await sendLarkMessage(lark_client,open_chat_id, txtresp, open_id, chat_type, message_id, session_id,useTime);
+        // await deleteSqsMessage(event);
       }
 
     } else {
       await sendLarkMessage(
+        lark_client,
         open_chat_id,
         `internal error ${payload_json.statusCode}`,
         open_id,
@@ -522,6 +561,7 @@ export const handler = async (event) => {
         message_id,
         session_id
       );
+      // await deleteSqsMessage(event);
     }
     return {
       statusCode: 200,
@@ -529,7 +569,8 @@ export const handler = async (event) => {
   } catch (error) {
     console.log(JSON.stringify(error));
     const text = error.message + "|" + error.stack;
-    await sendLarkMessage(open_chat_id, text, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(lark_client,open_chat_id, text, open_id, chat_type, message_id, session_id);
+    // await deleteSqsMessage(event);
     return {
       statusCode: 200,
     };

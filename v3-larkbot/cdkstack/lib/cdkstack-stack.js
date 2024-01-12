@@ -10,6 +10,10 @@ import subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import {LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import {addAutoScaling,addAutoScalingDDb} from './autoscalling.js';
 import * as s3 from "aws-cdk-lib/aws-s3";
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import {SqsEventSource} from 'aws-cdk-lib/aws-lambda-event-sources';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+
 import * as dotenv from 'dotenv' 
 dotenv.config()
 
@@ -42,6 +46,11 @@ export class CdkstackStack extends Stack {
       displayName: 'chat messages topic',
     });
 
+    // const queue = new sqs.Queue(this, 'larkchat_sqs',{
+    //   visibilityTimeout:Duration.seconds(300),
+    // });
+
+
     const NodejsFunctionProps ={
       bundling: {
         externalModules: [
@@ -70,6 +79,7 @@ export class CdkstackStack extends Stack {
         hideRef:process.env.hideRef,
         welcome_message:process.env.welcome_message,
         disclaimer:process.env.disclaimer,
+        // queueUrl:queue.queueUrl,
       },
       runtime: Runtime.NODEJS_18_X,
     }
@@ -112,6 +122,17 @@ export class CdkstackStack extends Stack {
     snsTopic.addSubscription( new subscriptions.LambdaSubscription(lambda_larkchat));
     // Grant the Lambda function publish data
     snsTopic.grantPublish(lambda_larkcallback);
+    //   // Grant Sqs 
+    // queue.grantSendMessages(lambda_larkcallback);
+
+    // // Add an event source to trigger the Lambda function when a message is added to the SQS queue
+    // lambda_larkchat.addEventSource(new SqsEventSource(queue,{batchSize: 10}));
+    // // Add permissions to the Lambda function to delete SQS messages
+    // lambda_larkchat.addToRolePolicy(new PolicyStatement({
+    //     actions: ['sqs:DeleteMessage'],
+    //     resources: [queue.queueArn]
+    //   }));
+
 
     // Create an API Gateway resource for each of the CRUD operations
     const api = new RestApi(this, 'LarkchatApi', {
