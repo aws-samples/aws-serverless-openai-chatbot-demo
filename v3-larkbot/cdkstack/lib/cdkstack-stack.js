@@ -57,7 +57,7 @@ export class CdkstackStack extends Stack {
           '@aws-sdk', // Use the 'aws-sdk' available in the Lambda runtime
           // '@aws-sdk/client-sns'
         ],
-        nodeModules:['@larksuiteoapi/node-sdk','axios']
+        nodeModules:['@larksuiteoapi/node-sdk']
       },
       environment: {
         DB_TABLE:dynamoTable.tableName,
