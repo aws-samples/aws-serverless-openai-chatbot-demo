@@ -23,14 +23,15 @@ const MAX_SEQ = 10;
 const dbclient = new DynamoDBClient();
 // const sqsClient = new SQSClient();
 // const queueUrl = process.env.queueUrl;
+const appIds = process.env.LARK_APPID.split(',');
+const appSecrets = process.env.LARK_APP_SECRET.split(',');
+const config = process.env.LARK_CONFIG.split(',');
 
 const initLarkClients = () => {
   // const lark_tokens = process.env.LARK_TOKEN.split(',');
-  const appIds = process.env.LARK_APPID.split(',');
-  const appSecrets = process.env.LARK_APP_SECRET.split(',');
-  const config = process.env.LARK_CONFIG.split(',');
   let clients_map = {};
-  let lark_config_map = {}
+  let lark_config_map = {};
+  let lark_id2sec_map = {}
   for (let i = 0; i < appIds.length; i++) {
     const client = new lark.Client({
       appId: appIds[i],
@@ -40,8 +41,9 @@ const initLarkClients = () => {
     });
     clients_map = { ...clients_map, [appIds[i]]: client };
     lark_config_map = {...lark_config_map, [appIds[i]]:config[i]}
+    lark_id2sec_map = {...lark_id2sec_map,[appIds[i]]:appSecrets[i]}
   }
-  return {lark_clients_map:clients_map,lark_config_map:lark_config_map}
+  return {lark_clients_map:clients_map,lark_config_map:lark_config_map,lark_id2sec_map:lark_id2sec_map};
 }
 
 
@@ -137,10 +139,10 @@ function generateMD5(text) {
 }
 
 //get tenant acecss token
-async function getTenantAccessToken() {
+async function getTenantAccessToken({app_id,app_secret}) {
   const cred_data = JSON.stringify({
-    "app_id": process.env.LARK_APPID,
-    "app_secret": process.env.LARK_APP_SECRET
+    "app_id": app_id,
+    "app_secret": app_secret
   });
   try {
     const tokenRes = await axios.post('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
@@ -321,7 +323,7 @@ const sendLarkText = async (larkclient,open_chat_id, content, user_id) => {
 
 
 
-const sendLarkMessage = async (lark_client,open_chat_id, content, user_id, chat_type, message_id, session_id,useTime) => {
+const sendLarkMessage = async (app_id,app_secret,lark_client,open_chat_id, content, user_id, chat_type, message_id, session_id,useTime) => {
   let ref_doc = extractRefDoc(content)
   let response = hideRefDoc(content);
   const { imageLinks, cleanedText } = processImagesInMd(response);
@@ -344,7 +346,7 @@ const sendLarkMessage = async (lark_client,open_chat_id, content, user_id, chat_
       response = response.replace(url,image_key);
       ref_doc = ref_doc.replace(url,image_key);
     } else {
-      accessToken = accessToken ?? await getTenantAccessToken();
+      accessToken = accessToken ?? await getTenantAccessToken({app_id,app_secret});
       const image_key = await generateImageKey(url, accessToken);
       console.log(`url:${url}\nimage_key:${image_key}`);
       if (image_key) {
@@ -475,8 +477,9 @@ export const handler = async (event) => {
   const chat_type = body.chat_type;
   const hide_ref = false; //process.env.hide_ref === "false" ? false : true;
   const app_id = body.app_id;
-  const {lark_clients_map,lark_config_map} = initLarkClients();
+  const {lark_clients_map,lark_config_map,lark_id2sec_map} = initLarkClients();
   const lark_client = lark_clients_map[app_id];
+  const app_secret = lark_id2sec_map[app_id];
 
   let msg = JSON.parse(body.msg);
   let textmsg;
@@ -488,20 +491,20 @@ export const handler = async (event) => {
     const file = await getLarkfile(body.message_id, imagekey, msg_type);
     console.log("resp:", file);
     const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
-    await sendLarkMessage(lark_client,open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   } else if (msg_type === "audio") {
     const file_key = msg.file_key;
     const duration = msg.duration;
     const file = await getLarkfile(body.message_id, file_key, msg_type);
-    await sendLarkMessage(lark_client,open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   }
 
   else {
-    await sendLarkMessage(lark_client,open_chat_id, `暂不支持'${msg_type}'格式的输入`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, `暂不支持'${msg_type}'格式的输入`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   }
@@ -540,7 +543,7 @@ export const handler = async (event) => {
     console.log(JSON.stringify(payload_json));
     const error = payload_json.errorMessage;
     if (error) {
-      await sendLarkMessage(lark_client,open_chat_id, error, open_id, chat_type, message_id, session_id);
+      await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, error, open_id, chat_type, message_id, session_id);
       // await deleteSqsMessage(event);
       return {
         statusCode: 200,
@@ -551,12 +554,14 @@ export const handler = async (event) => {
       let txtresp = body[0].choices[0].text.trimStart();
       const useTime = body[0].useTime.toFixed(1);
       if (txtresp !== '历史对话已清空'){
-        await sendLarkMessage(lark_client,open_chat_id, txtresp, open_id, chat_type, message_id, session_id,useTime);
+        await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, txtresp, open_id, chat_type, message_id, session_id,useTime);
         // await deleteSqsMessage(event);
       }
 
     } else {
       await sendLarkMessage(
+        app_id,
+        app_secret,
         lark_client,
         open_chat_id,
         `internal error ${payload_json.statusCode}`,
@@ -573,7 +578,7 @@ export const handler = async (event) => {
   } catch (error) {
     console.log(JSON.stringify(error));
     const text = error.message + "|" + error.stack;
-    await sendLarkMessage(lark_client,open_chat_id, text, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, text, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return {
       statusCode: 200,
