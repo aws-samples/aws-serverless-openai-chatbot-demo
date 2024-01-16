@@ -20,7 +20,7 @@ const dynamodb_tb = process.env.DB_TABLE;
 
 
 const initLarkClients = () => {
-  const lark_tokens = process.env.LARK_TOKEN.split(',');
+  // const lark_tokens = process.env.LARK_TOKEN.split(',');
   const appIds = process.env.LARK_APPID.split(',');
   const appSecrets = process.env.LARK_APP_SECRET.split(',');
   let clients_map = {};

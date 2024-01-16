@@ -79,6 +79,7 @@ export class CdkstackStack extends Stack {
         hideRef:process.env.hideRef,
         welcome_message:process.env.welcome_message,
         disclaimer:process.env.disclaimer,
+        LARK_CONFIG:process.env.LARK_CONFIG
         // queueUrl:queue.queueUrl,
       },
       runtime: Runtime.NODEJS_18_X,

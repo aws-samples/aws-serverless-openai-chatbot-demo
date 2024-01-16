@@ -25,10 +25,12 @@ const dbclient = new DynamoDBClient();
 // const queueUrl = process.env.queueUrl;
 
 const initLarkClients = () => {
-  const lark_tokens = process.env.LARK_TOKEN.split(',');
+  // const lark_tokens = process.env.LARK_TOKEN.split(',');
   const appIds = process.env.LARK_APPID.split(',');
   const appSecrets = process.env.LARK_APP_SECRET.split(',');
+  const config = process.env.LARK_CONFIG.split(',');
   let clients_map = {};
+  let lark_config_map = {}
   for (let i = 0; i < appIds.length; i++) {
     const client = new lark.Client({
       appId: appIds[i],
@@ -37,8 +39,9 @@ const initLarkClients = () => {
       disableTokenCache: false,
     });
     clients_map = { ...clients_map, [appIds[i]]: client };
+    lark_config_map = {...lark_config_map, [appIds[i]]:config[i]}
   }
-  return clients_map
+  return {lark_clients_map:clients_map,lark_config_map:lark_config_map}
 }
 
 
@@ -261,7 +264,7 @@ const sendLarkCard = async (larkclient,open_chat_id, content, user_id, useTime) 
     "header": {
       "template": "blue",
       "title": {
-        "content": "SSO小助手",
+        "content": "小助手",
         "tag": "plain_text"
       }
     }
@@ -472,7 +475,7 @@ export const handler = async (event) => {
   const chat_type = body.chat_type;
   const hide_ref = false; //process.env.hide_ref === "false" ? false : true;
   const app_id = body.app_id;
-  const lark_clients_map = initLarkClients();
+  const {lark_clients_map,lark_config_map} = initLarkClients();
   const lark_client = lark_clients_map[app_id];
 
   let msg = JSON.parse(body.msg);
@@ -519,6 +522,7 @@ export const handler = async (event) => {
     temperature: Number(process.env.temperature),
     use_trace: process.env.use_trace === "true" ? true : false,
     hide_ref: hide_ref,
+    feature_config:lark_config_map[app_id]??'default',
     system_role: "",
     system_role_prompt: "",
   };
