@@ -18,21 +18,29 @@ const dynamodb_tb = process.env.DB_TABLE;
 // const queueUrl = process.env.queueUrl;
 
 
-
+const appIds = process.env.LARK_APPID.split(',');
+const appSecrets = process.env.LARK_APP_SECRET.split(',');
+const config = process.env.LARK_CONFIG.split(',');
+const lark_tenant = process.env.LARK_TENANT_NAMES.split(',');
 const initLarkClients = () => {
   // const lark_tokens = process.env.LARK_TOKEN.split(',');
-  const appIds = process.env.LARK_APPID.split(',');
-  const appSecrets = process.env.LARK_APP_SECRET.split(',');
-  let clients_map = {};
+  let lark_clients_map = {};
+  let lark_config_map = {};
+  let lark_id2sec_map = {};
+  let lark_tenants_map = {}
   for (let i = 0; i < appIds.length; i++) {
     const client = new lark.Client({
       appId: appIds[i],
       appSecret: appSecrets[i],
       appType: lark.AppType.SelfBuild,
+      disableTokenCache: false,
     });
-    clients_map = { ...clients_map, [appIds[i]]: client };
+    lark_clients_map = { ...lark_clients_map, [appIds[i]]: client };
+    lark_config_map = {...lark_config_map, [appIds[i]]:config[i]};
+    lark_id2sec_map = {...lark_id2sec_map,[appIds[i]]:appSecrets[i]};
+    lark_tenants_map = {...lark_tenants_map,[appIds[i]]:lark_tenant[i]};
   }
-  return clients_map
+  return {lark_clients_map,lark_config_map,lark_id2sec_map,lark_tenants_map};
 }
 
 
@@ -121,13 +129,14 @@ const updateLarkCard = ({ card_template, actions, ref_doc,thumbs_up_cnt,thumbs_d
   return card_json;
 }
 
-const sendFeedback = async ({ method, session_id, msgid, action, user }) => {
+const sendFeedback = async ({ tenant,method, session_id, msgid, action, user }) => {
   const client = new LambdaClient();
   let payload;
   if (method === 'post') {
     payload = {
       "method": method,
       "resource": 'feedback',
+      "company":tenant,
       "body": {
         "msgid": msgid,
         "username": user,
@@ -209,7 +218,8 @@ export const handler = async (event) => {
   const data = JSON.parse(event.body);
   // console.log(event);
   console.log(event.body);
-  const lark_clients_map = initLarkClients();
+  const {lark_clients_map,lark_tenants_map} = initLarkClients();
+
   //配置消息卡片的回调url为api_endponint/feedback
   if (event.httpMethod === 'POST' && event.resource === '/feedback') {
     if (data.type === 'url_verification') {
@@ -220,6 +230,8 @@ export const handler = async (event) => {
         })
       }
     } else if (data.app_id in lark_clients_map) {
+      const lark_tenant_name = lark_tenants_map[data.app_id];
+
       const larkclient = lark_clients_map[data.app_id];
       const user_id = data.user_id;
       const open_message_id = data.open_message_id;
@@ -266,11 +278,11 @@ export const handler = async (event) => {
           }
           user_actions = {...user_actions,[user_id]:{ thumbs_up_cnt:0,thumbs_down_cnt:1}};
         }
-        await sendFeedback({ method: 'post', session_id: session_id, msgid: dbret.up_message_id, action: action, user: user_id });
+        await sendFeedback({ tenant:lark_tenant_name,method: 'post', session_id: session_id, msgid: dbret.up_message_id, action: action, user: user_id });
 
       } else if (actions.thumbup === 'cancel' || actions.thumbdown === 'cancel') {//取消点赞或者点踩
         const action = actions.thumbup === 'cancel' ? 'thumbs-up' : 'thumbs-down';
-        await sendFeedback({ method: 'delete', session_id: session_id, msgid: dbret.up_message_id, action: action, user: user_id });
+        await sendFeedback({ tenant:lark_tenant_name,method: 'delete', session_id: session_id, msgid: dbret.up_message_id, action: action, user: user_id });
       } else if (actions.clear === 'click') {
         await sendSnSMesage(
           {
@@ -344,7 +356,9 @@ export const handler = async (event) => {
       const user_id = data.event.user_id.user_id;
       const ddbret = await queryDynamoDb(data.event.message_id);
       const session_id = ddbret.session_id
+      const lark_tenant_name = lark_tenants_map[data.event.app_id];
       await sendFeedback({
+        tenant:lark_tenant_name,
         method: 'post',
         session_id: session_id,
         msgid: data.event.message_id,
@@ -354,9 +368,11 @@ export const handler = async (event) => {
 
     } else if (data.header.event_type === 'im.message.reaction.deleted_v1') {
       const user_id = data.event.user_id.user_id;
+      const lark_tenant_name = lark_tenants_map[data.event.app_id];
       const ddbret = await queryDynamoDb(data.event.message_id);
       const session_id = ddbret.session_id
       await sendFeedback({
+        tenant:lark_tenant_name,
         method: 'delete',
         session_id: session_id,
         msgid: data.event.message_id,

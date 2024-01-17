@@ -4,6 +4,7 @@
 
 
 export function addAutoScaling(fn,minCapacity=1,maxCapacity=100){
+  return fn;
     const alias = fn.addAlias('prod');
 
     // Create AutoScaling target

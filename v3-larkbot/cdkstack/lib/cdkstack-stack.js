@@ -39,7 +39,7 @@ export class CdkstackStack extends Stack {
       // tableName: process.env.DB_TABLE,
       removalPolicy: RemovalPolicy.DESTROY, // NOT recommended for production code
     });
-    addAutoScalingDDb(dynamoTable);
+    // addAutoScalingDDb(dynamoTable);
 
     // Create sns Topic
     const snsTopic = new Topic(this, 'Topic', {
@@ -55,9 +55,8 @@ export class CdkstackStack extends Stack {
       bundling: {
         externalModules: [
           '@aws-sdk', // Use the 'aws-sdk' available in the Lambda runtime
-          // '@aws-sdk/client-sns'
         ],
-        nodeModules:['@larksuiteoapi/node-sdk']
+        nodeModules:['@larksuiteoapi/node-sdk','axios']
       },
       environment: {
         DB_TABLE:dynamoTable.tableName,
@@ -79,7 +78,8 @@ export class CdkstackStack extends Stack {
         hideRef:process.env.hideRef,
         welcome_message:process.env.welcome_message,
         disclaimer:process.env.disclaimer,
-        LARK_CONFIG:process.env.LARK_CONFIG
+        LARK_CONFIG:process.env.LARK_CONFIG,
+        LARK_TENANT_NAMES:process.env.LARK_TENANT_NAMES
         // queueUrl:queue.queueUrl,
       },
       runtime: Runtime.NODEJS_18_X,
