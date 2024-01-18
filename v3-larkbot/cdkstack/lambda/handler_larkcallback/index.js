@@ -123,8 +123,8 @@ const updateLarkCard = ({ card_template, actions, ref_doc,thumbs_up_cnt,thumbs_d
     card_json.elements.splice(-1, 1); //从最后一个索引处，删除ref doc
     card_json.elements.splice(-1, 1); //从最后一个索引处，删除分割线
   } else if (actionElement[0] && actions.clear === 'click') {
-    actionElement[0].actions[3].text.content = "对话历史已清空";  //改变状态是已赞
-    actionElement[0].actions[3].value.clear = "cancel";
+    // actionElement[0].actions[3].text.content = "对话历史已清空";  //改变状态是已赞
+    // actionElement[0].actions[3].value.clear = "cancel";
   }
   return card_json;
 }
