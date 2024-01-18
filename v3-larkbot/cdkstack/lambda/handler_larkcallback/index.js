@@ -115,8 +115,8 @@ const updateLarkCard = ({ card_template, actions, ref_doc,thumbs_up_cnt,thumbs_d
     card_json.elements.splice(-1, 1); //从最后一个索引处，删除ref doc
     card_json.elements.splice(-1, 1); //从最后一个索引处，删除分割线
   } else if (actionElement[0] && actions.clear === 'click') {
-    actionElement[0].actions[3].text.content = "对话历史已清空";  //改变状态是已赞
-    actionElement[0].actions[3].value.clear = "cancel";
+    // actionElement[0].actions[3].text.content = "对话历史已清空";  //改变状态是已赞
+    // actionElement[0].actions[3].value.clear = "cancel";
   }
   return card_json;
 }
@@ -321,6 +321,7 @@ export const handler = async (event) => {
       // console.log(data);
       const open_chat_id = data.event.message.chat_id;
       const chat_type = data.event.message.chat_type;
+      const parent_id = data.event.message.parent_id;
       const open_id = data.event.sender.sender_id.open_id;
       const user_id = data.event.sender.sender_id.user_id;
       const props = {
@@ -332,7 +333,8 @@ export const handler = async (event) => {
         open_chat_id: open_chat_id,
         user_id: user_id,
         message_id: data.event.message.message_id,
-        app_id: data.header.app_id
+        app_id: data.header.app_id,
+        parent_id:parent_id
       }
       // const msg = JSON.parse(message.content).text;
       await sendSnSMesage({
