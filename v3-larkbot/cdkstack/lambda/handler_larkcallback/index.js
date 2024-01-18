@@ -333,6 +333,7 @@ export const handler = async (event) => {
       // console.log(data);
       const open_chat_id = data.event.message.chat_id;
       const chat_type = data.event.message.chat_type;
+      const parent_id = data.event.message.parent_id;
       const open_id = data.event.sender.sender_id.open_id;
       const user_id = data.event.sender.sender_id.user_id;
       const props = {
@@ -344,7 +345,8 @@ export const handler = async (event) => {
         open_chat_id: open_chat_id,
         user_id: user_id,
         message_id: data.event.message.message_id,
-        app_id: data.header.app_id
+        app_id: data.header.app_id,
+        parent_id:parent_id
       }
       // const msg = JSON.parse(message.content).text;
       await sendSnSMesage({

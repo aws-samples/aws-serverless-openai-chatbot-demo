@@ -251,17 +251,17 @@ const sendLarkCard = async (larkclient,open_chat_id, content, user_id, useTime) 
               "checkref": 'click'
             }
           },
-          {
-            "tag": "button",
-            "text": {
-              "tag": "plain_text",
-              "content": "新对话"
-            },
-            "type": "primary",
-            "value": {
-              "clear": 'click'
-            }
-          }
+          // {
+          //   "tag": "button",
+          //   "text": {
+          //     "tag": "plain_text",
+          //     "content": "新对话"
+          //   },
+          //   "type": "primary",
+          //   "value": {
+          //     "clear": 'click'
+          //   }
+          // }
         ]
       }
     ],
@@ -477,13 +477,17 @@ export const handler = async (event) => {
   const msg_type = body.msg_type;
   const open_id = body.open_id;
   const chat_type = body.chat_type;
+  const parent_id = body.parent_id;
   const hide_ref = false; //process.env.hide_ref === "false" ? false : true;
   const app_id = body.app_id;
   const {lark_clients_map,lark_config_map,lark_id2sec_map,lark_tenants_map} = initLarkClients();
   const lark_client = lark_clients_map[app_id];
   const app_secret = lark_id2sec_map[app_id];
   const lark_tenant_name = lark_tenants_map[app_id];
-
+  
+  //the multi rounds is disable by default until 
+  //the parent_id is not null 
+  const multi_rounds = parent_id? true :false;
   let msg = JSON.parse(body.msg);
   let textmsg;
   let imagekey;
@@ -518,13 +522,13 @@ export const handler = async (event) => {
     ws_endpoint: "",
     msgid: message_id,
     user_id: user_id,
-    tenant:lark_tenant_name,
+    company:lark_tenant_name,
     chat_name: session_id,
     prompt: textmsg,
     max_tokens: Number(process.env.max_tokens),
     model: process.env.MODEL_NAME,
     use_qa: process.env.use_qa === "true" ? true : false,
-    multi_rounds: process.env.multi_rounds === "true" ? true : false,
+    multi_rounds: multi_rounds,
     template_id: process.env.template_id ?? 'default',
     temperature: Number(process.env.temperature),
     use_trace: process.env.use_trace === "true" ? true : false,
