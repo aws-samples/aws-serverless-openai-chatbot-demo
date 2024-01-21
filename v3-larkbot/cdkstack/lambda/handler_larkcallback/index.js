@@ -20,6 +20,7 @@ const dynamodb_tb = process.env.DB_TABLE;
 
 const appIds = process.env.LARK_APPID.split(',');
 const appSecrets = process.env.LARK_APP_SECRET.split(',');
+const larkTokens = process.env.LARK_TOKEN.split(',');
 const config = process.env.LARK_CONFIG.split(',');
 const lark_tenant = process.env.LARK_TENANT_NAMES.split(',');
 const initLarkClients = () => {
@@ -27,7 +28,8 @@ const initLarkClients = () => {
   let lark_clients_map = {};
   let lark_config_map = {};
   let lark_id2sec_map = {};
-  let lark_tenants_map = {}
+  let lark_tenants_map = {};
+  let lark_tokens_map = {};
   for (let i = 0; i < appIds.length; i++) {
     const client = new lark.Client({
       appId: appIds[i],
@@ -39,8 +41,9 @@ const initLarkClients = () => {
     lark_config_map = {...lark_config_map, [appIds[i]]:config[i]};
     lark_id2sec_map = {...lark_id2sec_map,[appIds[i]]:appSecrets[i]};
     lark_tenants_map = {...lark_tenants_map,[appIds[i]]:lark_tenant[i]};
+    lark_tokens_map = {...lark_tokens_map,[larkTokens[i]]:larkTokens[i]}
   }
-  return {lark_clients_map,lark_config_map,lark_id2sec_map,lark_tenants_map};
+  return {lark_clients_map,lark_config_map,lark_id2sec_map,lark_tenants_map,lark_tokens_map};
 }
 
 
@@ -218,11 +221,11 @@ export const handler = async (event) => {
   const data = JSON.parse(event.body);
   // console.log(event);
   console.log(event.body);
-  const {lark_clients_map,lark_tenants_map} = initLarkClients();
+  const {lark_clients_map,lark_tenants_map,lark_tokens_map} = initLarkClients();
 
   //配置消息卡片的回调url为api_endponint/feedback
   if (event.httpMethod === 'POST' && event.resource === '/feedback') {
-    if (data.type === 'url_verification') {
+    if (data.type === 'url_verification' && data.token in lark_tokens_map) {
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -320,7 +323,7 @@ export const handler = async (event) => {
     }
   }
 
-  if (data.type === 'url_verification') {
+  if (data.type === 'url_verification' && data.token in lark_tokens_map) {
     return {
       statusCode: 200,
       body: JSON.stringify({

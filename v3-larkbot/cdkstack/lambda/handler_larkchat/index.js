@@ -14,10 +14,12 @@ import {
 } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import * as axios from "axios";
-import { SQSClient, DeleteMessageCommand } from "@aws-sdk/client-sqs"; 
+import { SQSClient, DeleteMessageCommand } from "@aws-sdk/client-sqs";
 
 const FormData = require('form-data');
 const crypto = require('crypto');
+const cheerio = require('cheerio');
+
 
 const MAX_SEQ = 10;
 const dbclient = new DynamoDBClient();
@@ -41,13 +43,43 @@ const initLarkClients = () => {
       disableTokenCache: false,
     });
     lark_clients_map = { ...lark_clients_map, [appIds[i]]: client };
-    lark_config_map = {...lark_config_map, [appIds[i]]:config[i]};
-    lark_id2sec_map = {...lark_id2sec_map,[appIds[i]]:appSecrets[i]};
-    lark_tenants_map = {...lark_tenants_map,[appIds[i]]:lark_tenant[i]};
+    lark_config_map = { ...lark_config_map, [appIds[i]]: config[i] };
+    lark_id2sec_map = { ...lark_id2sec_map, [appIds[i]]: appSecrets[i] };
+    lark_tenants_map = { ...lark_tenants_map, [appIds[i]]: lark_tenant[i] };
   }
-  return {lark_clients_map,lark_config_map,lark_id2sec_map,lark_tenants_map};
+  return { lark_clients_map, lark_config_map, lark_id2sec_map, lark_tenants_map };
 }
 
+function extractUrls(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.match(urlRegex);
+}
+
+async function fetchWithTimeout(url, timeout = 5000) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('request timeout')), timeout)
+    )
+  ]);
+}
+
+
+async function extractURLContent(url) {
+  function removeJavaScript(html) {
+    return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  }
+
+  try {
+    const resp = await fetchWithTimeout(url);
+    const data = await resp.text();
+    const $ = cheerio.load(data);
+    return removeJavaScript($.text()).replace(/\s{3,}/g, '\n');
+  } catch (error) {
+    console.error("extract url:", error);
+    return '';
+  }
+}
 
 // const larkclient = new lark.Client({
 //   appId: process.env.LARK_APPID,
@@ -141,7 +173,7 @@ function generateMD5(text) {
 }
 
 //get tenant acecss token
-async function getTenantAccessToken({app_id,app_secret}) {
+async function getTenantAccessToken({ app_id, app_secret }) {
   const cred_data = JSON.stringify({
     "app_id": app_id,
     "app_secret": app_secret
@@ -194,7 +226,7 @@ async function generateImageKey(url, token) {
 }
 
 // 发送lark 卡片消息
-const sendLarkCard = async (larkclient,open_chat_id, content, user_id, useTime) => {
+const sendLarkCard = async (larkclient, open_chat_id, content, user_id, useTime) => {
   const disclaimer = process.env.disclaimer;
   const card_template = {
     "config": {
@@ -278,7 +310,7 @@ const sendLarkCard = async (larkclient,open_chat_id, content, user_id, useTime) 
   //如果是对话已清空
   if (content === '历史对话已清空') {
     card_json = { ...card_template, elements: [card_template.elements[0]] };
-  } 
+  }
   // console.log(card_json);
   try {
     const resp = await larkclient.im.message.create({
@@ -306,7 +338,7 @@ const sendLarkCard = async (larkclient,open_chat_id, content, user_id, useTime) 
 
 
 // 发送lark 文本消息
-const sendLarkText = async (larkclient,open_chat_id, content, user_id) => {
+const sendLarkText = async (larkclient, open_chat_id, content, user_id) => {
   try {
     await larkclient.im.message.create({
       params: {
@@ -325,14 +357,14 @@ const sendLarkText = async (larkclient,open_chat_id, content, user_id) => {
 
 
 
-const sendLarkMessage = async (app_id,app_secret,lark_client,open_chat_id, content, user_id, chat_type, message_id, session_id,useTime) => {
+const sendLarkMessage = async (app_id, app_secret, lark_client, open_chat_id, content, user_id, chat_type, message_id, session_id, useTime) => {
   let ref_doc = extractRefDoc(content)
   let response = hideRefDoc(content);
   const { imageLinks, cleanedText } = processImagesInMd(response);
   let imageKeys = [];
   //如果存在图片链接，则获取accesstoken，并上传图片到飞书，获取key
   let accessToken;
-  for (let i =0 ; i < imageLinks.length; i++){
+  for (let i = 0; i < imageLinks.length; i++) {
     const url = imageLinks[i];
     const url_key = `url_${generateMD5(url)}`;
     // console.log(`url:${url}\nurl_key:${url_key}`);
@@ -345,19 +377,19 @@ const sendLarkMessage = async (app_id,app_secret,lark_client,open_chat_id, conte
       imageKeys.push(image_key);
 
       //lark md图片支持格式为![hover_text](image_key)
-      response = response.replace(url,image_key);
-      ref_doc = ref_doc.replace(url,image_key);
+      response = response.replace(url, image_key);
+      ref_doc = ref_doc.replace(url, image_key);
     } else {
-      accessToken = accessToken ?? await getTenantAccessToken({app_id,app_secret});
+      accessToken = accessToken ?? await getTenantAccessToken({ app_id, app_secret });
       const image_key = await generateImageKey(url, accessToken);
       console.log(`url:${url}\nimage_key:${image_key}`);
       if (image_key) {
         imageKeys.push(image_key);
         //lark md图片支持格式为![hover_text](image_key)
-        response = response.replace(url,image_key);
-        ref_doc = ref_doc.replace(url,image_key);
+        response = response.replace(url, image_key);
+        ref_doc = ref_doc.replace(url, image_key);
         await saveDynamoDb(url_key, { image_key: image_key });
-      }else{
+      } else {
         //如果上传失败，需要把![]()替换成链接格式![]()，否则lark会报错
         response = replaceImagesLinksInMd(response);
         ref_doc = replaceImagesLinksInMd(ref_doc);
@@ -367,11 +399,11 @@ const sendLarkMessage = async (app_id,app_secret,lark_client,open_chat_id, conte
   // console.log(`imageKeys:${imageKeys}`);
 
 
-  const resp = await sendLarkCard(lark_client,open_chat_id, response, user_id, useTime);
+  const resp = await sendLarkCard(lark_client, open_chat_id, response, user_id, useTime);
   if (resp) {
     const timestamp = new Date()
     //session id 是自定义的，message id是 lark生成的，所以需要保存message到ddb，用于关联messageid和session id
-    await saveDynamoDb(resp.card_message_id, { "session_id": session_id, "timestamp":timestamp.toString(),"up_message_id": message_id,"chat_type":chat_type, "ref_doc": ref_doc, "card_template": resp.card_template });
+    await saveDynamoDb(resp.card_message_id, { "session_id": session_id, "timestamp": timestamp.toString(), "up_message_id": message_id, "chat_type": chat_type, "ref_doc": ref_doc, "card_template": resp.card_template });
   }
 };
 
@@ -421,7 +453,7 @@ function replaceImagesLinksInMd(markdownText) {
   let replacedText = markdownText;
 
   //去掉第一个！即可
-  imageLinks.map(link => (replacedText = replacedText.replace(link,link.slice(1))))
+  imageLinks.map(link => (replacedText = replacedText.replace(link, link.slice(1))))
   return replacedText;
 }
 
@@ -480,14 +512,14 @@ export const handler = async (event) => {
   const parent_id = body.parent_id;
   const hide_ref = false; //process.env.hide_ref === "false" ? false : true;
   const app_id = body.app_id;
-  const {lark_clients_map,lark_config_map,lark_id2sec_map,lark_tenants_map} = initLarkClients();
+  const { lark_clients_map, lark_config_map, lark_id2sec_map, lark_tenants_map } = initLarkClients();
   const lark_client = lark_clients_map[app_id];
   const app_secret = lark_id2sec_map[app_id];
   const lark_tenant_name = lark_tenants_map[app_id];
-  
+
   //the multi rounds is disable by default until 
   //the parent_id is not null 
-  const multi_rounds = parent_id? true :false;
+  const multi_rounds = parent_id ? true : false;
   let msg = JSON.parse(body.msg);
   let textmsg;
   let imagekey;
@@ -498,22 +530,34 @@ export const handler = async (event) => {
     const file = await getLarkfile(body.message_id, imagekey, msg_type);
     console.log("resp:", file);
     const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
-    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   } else if (msg_type === "audio") {
     const file_key = msg.file_key;
     const duration = msg.duration;
     const file = await getLarkfile(body.message_id, file_key, msg_type);
-    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   }
 
   else {
-    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, `暂不支持'${msg_type}'格式的输入`, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, `暂不支持'${msg_type}'格式的输入`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
+  }
+  let system_role_prompt = '';
+  let use_qa = true;
+
+  const text_urls = extractUrls(textmsg);
+  //把解析出的内容，直接通过system prompt拼接进去，并且关闭QA，直接走LLM回答
+  if (text_urls) {
+    const web_content = await extractURLContent(text_urls[0]);
+    if (web_content.length > 0) {
+      system_role_prompt = `Here is the extracted content from url:${text_urls[0]} for your reference:\n${web_content}\n\n`
+      use_qa = false
+    }
   }
 
   const client = new LambdaClient();
@@ -522,20 +566,20 @@ export const handler = async (event) => {
     ws_endpoint: "",
     msgid: message_id,
     user_id: user_id,
-    company:lark_tenant_name,
+    company: lark_tenant_name,
     chat_name: session_id,
     prompt: textmsg,
     max_tokens: Number(process.env.max_tokens),
     model: process.env.MODEL_NAME,
-    use_qa: process.env.use_qa === "true" ? true : false,
+    use_qa: use_qa,
     multi_rounds: multi_rounds,
     template_id: process.env.template_id ?? 'default',
     temperature: Number(process.env.temperature),
-    use_trace: process.env.use_trace === "true" ? true : false,
-    hide_ref: hide_ref,
-    feature_config:lark_config_map[app_id]??'default',
+    use_trace: false,
+    hide_ref: false,
+    feature_config: lark_config_map[app_id] ?? 'default',
     system_role: "",
-    system_role_prompt: "",
+    system_role_prompt: system_role_prompt,
   };
   console.log(JSON.stringify(payload));
 
@@ -551,7 +595,7 @@ export const handler = async (event) => {
     console.log(JSON.stringify(payload_json));
     const error = payload_json.errorMessage;
     if (error) {
-      await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, error, open_id, chat_type, message_id, session_id);
+      await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, error, open_id, chat_type, message_id, session_id);
       // await deleteSqsMessage(event);
       return {
         statusCode: 200,
@@ -561,8 +605,8 @@ export const handler = async (event) => {
     if (payload_json.statusCode == 200) {
       let txtresp = body[0].choices[0].text.trimStart();
       const useTime = body[0].useTime.toFixed(1);
-      if (txtresp !== '历史对话已清空'){
-        await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, txtresp, open_id, chat_type, message_id, session_id,useTime);
+      if (txtresp !== '历史对话已清空') {
+        await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, txtresp, open_id, chat_type, message_id, session_id, useTime);
         // await deleteSqsMessage(event);
       }
 
@@ -586,7 +630,7 @@ export const handler = async (event) => {
   } catch (error) {
     console.log(JSON.stringify(error));
     const text = error.message + "|" + error.stack;
-    await sendLarkMessage(app_id,app_secret,lark_client,open_chat_id, text, open_id, chat_type, message_id, session_id);
+    await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, text, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return {
       statusCode: 200,
