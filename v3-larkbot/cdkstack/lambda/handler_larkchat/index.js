@@ -357,7 +357,7 @@ const sendLarkText = async (larkclient, open_chat_id, content, user_id) => {
 
 
 
-const sendLarkMessage = async (app_id, app_secret, lark_client, open_chat_id, content, user_id, chat_type, message_id, session_id, useTime) => {
+const sendLarkMessage = async (app_id, app_secret, lark_client, open_chat_id, content, user_id, chat_type, message_id, session_id,web_content='', use_qa=true, useTime=0.0) => {
   let ref_doc = extractRefDoc(content)
   let response = hideRefDoc(content);
   const { imageLinks, cleanedText } = processImagesInMd(response);
@@ -396,14 +396,20 @@ const sendLarkMessage = async (app_id, app_secret, lark_client, open_chat_id, co
       }
     }
   }
-  // console.log(`imageKeys:${imageKeys}`);
-
 
   const resp = await sendLarkCard(lark_client, open_chat_id, response, user_id, useTime);
   if (resp) {
     const timestamp = new Date()
     //session id 是自定义的，message id是 lark生成的，所以需要保存message到ddb，用于关联messageid和session id
-    await saveDynamoDb(resp.card_message_id, { "session_id": session_id, "timestamp": timestamp.toString(), "up_message_id": message_id, "chat_type": chat_type, "ref_doc": ref_doc, "card_template": resp.card_template });
+    await saveDynamoDb(resp.card_message_id, 
+      { "session_id": session_id,
+       "timestamp": timestamp.toString(), 
+       "up_message_id": message_id, 
+       "chat_type": chat_type, 
+       "ref_doc": ref_doc,
+        "card_template": resp.card_template,
+        "web_content":web_content,
+      "use_qa":use_qa });
   }
 };
 
@@ -547,17 +553,23 @@ export const handler = async (event) => {
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   }
-  let system_role_prompt = '';
+  
+  let web_content = ''
   let use_qa = true;
 
   const text_urls = extractUrls(textmsg);
   //把解析出的内容，直接通过system prompt拼接进去，并且关闭QA，直接走LLM回答
   if (text_urls) {
-    const web_content = await extractURLContent(text_urls[0]);
-    if (web_content.length > 0) {
-      system_role_prompt = `Here is the extracted content from url:${text_urls[0]} for your reference:\n${web_content}\n\n`
+    const content = await extractURLContent(text_urls[0]);
+    if (content.length > 0) {
+      web_content = `Here is the extracted content from url:${text_urls[0]} for your reference:\n${content}\n\n`
       use_qa = false
     }
+  }else if (parent_id){
+    //如果是针对url 的内容进行多轮对话，需要use_qa=false, 通过parent id找到消息卡片id，取出之前消息的usq_qa 状态。
+    const cached = await queryDynamoDb(parent_id);
+    use_qa = cached?cached.use_qa:true;
+    web_content = cached?cached.web_content:'';
   }
 
   const client = new LambdaClient();
@@ -579,7 +591,7 @@ export const handler = async (event) => {
     hide_ref: false,
     feature_config: lark_config_map[app_id] ?? 'default',
     system_role: "",
-    system_role_prompt: system_role_prompt,
+    system_role_prompt: web_content,
   };
   console.log(JSON.stringify(payload));
 
@@ -606,7 +618,7 @@ export const handler = async (event) => {
       let txtresp = body[0].choices[0].text.trimStart();
       const useTime = body[0].useTime.toFixed(1);
       if (txtresp !== '历史对话已清空') {
-        await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, txtresp, open_id, chat_type, message_id, session_id, useTime);
+        await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, txtresp, open_id, chat_type, message_id, session_id, web_content,use_qa, useTime);
         // await deleteSqsMessage(event);
       }
 
