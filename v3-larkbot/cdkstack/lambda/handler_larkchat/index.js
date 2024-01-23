@@ -29,12 +29,17 @@ const appIds = process.env.LARK_APPID.split(',');
 const appSecrets = process.env.LARK_APP_SECRET.split(',');
 const config = process.env.LARK_CONFIG.split(',');
 const lark_tenant = process.env.LARK_TENANT_NAMES.split(',');
+const systemRoles = process.env.SYSTEM_ROLES.split('|');
+const systemPrompts = process.env.SYSTEM_PRMOPTS.split('|');
+
 const initLarkClients = () => {
   // const lark_tokens = process.env.LARK_TOKEN.split(',');
   let lark_clients_map = {};
   let lark_config_map = {};
   let lark_id2sec_map = {};
-  let lark_tenants_map = {}
+  let lark_tenants_map = {};
+  let system_roles_map = {};
+  let system_prompts_map = {};
   for (let i = 0; i < appIds.length; i++) {
     const client = new lark.Client({
       appId: appIds[i],
@@ -46,8 +51,11 @@ const initLarkClients = () => {
     lark_config_map = { ...lark_config_map, [appIds[i]]: config[i] };
     lark_id2sec_map = { ...lark_id2sec_map, [appIds[i]]: appSecrets[i] };
     lark_tenants_map = { ...lark_tenants_map, [appIds[i]]: lark_tenant[i] };
+    system_roles_map = {...system_roles_map,[appIds[i]]: systemRoles[i] };
+    system_prompts_map = {...system_prompts_map,[appIds[i]]: systemPrompts[i] };
+
   }
-  return { lark_clients_map, lark_config_map, lark_id2sec_map, lark_tenants_map };
+  return { lark_clients_map, lark_config_map, lark_id2sec_map, lark_tenants_map,system_roles_map,system_prompts_map};
 }
 
 function extractUrls(text) {
@@ -518,10 +526,13 @@ export const handler = async (event) => {
   const parent_id = body.parent_id;
   const hide_ref = false; //process.env.hide_ref === "false" ? false : true;
   const app_id = body.app_id;
-  const { lark_clients_map, lark_config_map, lark_id2sec_map, lark_tenants_map } = initLarkClients();
+  const { lark_clients_map, lark_config_map, lark_id2sec_map, lark_tenants_map,system_roles_map,system_prompts_map } = initLarkClients();
   const lark_client = lark_clients_map[app_id];
   const app_secret = lark_id2sec_map[app_id];
   const lark_tenant_name = lark_tenants_map[app_id];
+  const system_role = system_roles_map[app_id] === undefined?'':system_roles_map[app_id];
+  const system_prompt = system_prompts_map[app_id] === undefined?'':system_prompts_map[app_id];
+  console.log(`app id:${app_id} system_role:${system_role}, system_prompt:${system_prompt}`);
 
   //the multi rounds is disable by default until 
   //the parent_id is not null 
@@ -553,7 +564,7 @@ export const handler = async (event) => {
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   }
-  
+
   let web_content = ''
   let use_qa = true;
 
@@ -590,8 +601,8 @@ export const handler = async (event) => {
     use_trace: false,
     hide_ref: false,
     feature_config: lark_config_map[app_id] ?? 'default',
-    system_role: "",
-    system_role_prompt: web_content,
+    system_role: system_role,
+    system_role_prompt: web_content?web_content:system_prompt,
   };
   console.log(JSON.stringify(payload));
 
