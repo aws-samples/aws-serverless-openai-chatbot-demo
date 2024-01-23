@@ -566,7 +566,8 @@ export const handler = async (event) => {
   if (text_urls) {
     const content = await extractURLContent(text_urls[0]);
     if (content.length > 0) {
-      web_content = `Here is the extracted content from url:${text_urls[0]} for your reference:\n${content}\n\n`
+      //限制最大长度为10k，相当于3-4k英文token
+      web_content = `Here is the extracted content from url:${text_urls[0]} for your reference:\n${content.slice(0,10000)}\n\n`
       use_qa = false
     }
   }else if (parent_id){
