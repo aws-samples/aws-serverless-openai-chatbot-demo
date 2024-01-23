@@ -201,8 +201,8 @@ const sendSnSMesage = async ({ larkclient, ...props }) => {
         receive_id_type: 'chat_id',
       },
       data: {
-        receive_id: open_chat_id,
-        content: JSON.stringify({ text: `<at user_id="${user_id}"></at> Internal error` }),
+        receive_id: props.open_chat_id,
+        content: JSON.stringify({ text: `<at user_id="${props.user_id}"></at> Internal error` }),
         msg_type: 'text',
       },
     });
