@@ -118,13 +118,17 @@ const updateLarkCard = ({ card_template, actions, ref_doc,thumbs_up_cnt,thumbs_d
   } else if (actionElement[0] && actions.checkref === 'click') {
     actionElement[0].actions[2].text.content = "隐藏引用";  //改变状态
     actionElement[0].actions[2].value.checkref = "cancel";  //改变状态
-    card_json.elements.splice(3, 0, { "tag": "hr" }); //从索引3处，删除0个元素，插入 分割线
-    card_json.elements.splice(4, 0, { "tag": "markdown", "content": ref_doc }); //从4处，删除0个元素，插入 ref doc
+    if (card_json.elements.length <= 3){
+      card_json.elements.splice(3, 0, { "tag": "hr" }); //从索引3处，删除0个元素，插入 分割线
+      card_json.elements.splice(4, 0, { "tag": "markdown", "content": ref_doc }); //从4处，删除0个元素，插入 ref doc
+    }
   } else if (actionElement[0] && actions.checkref === 'cancel') {
     actionElement[0].actions[2].text.content = "查看引用";  //改变状态
     actionElement[0].actions[2].value.checkref = "click";  //改变状态
-    card_json.elements.splice(-1, 1); //从最后一个索引处，删除ref doc
-    card_json.elements.splice(-1, 1); //从最后一个索引处，删除分割线
+    if (card_json.elements.length > 3){
+      card_json.elements.splice(-1, 1); //从最后一个索引处，删除ref doc
+      card_json.elements.splice(-1, 1); //从最后一个索引处，删除分割线
+    }
   } else if (actionElement[0] && actions.clear === 'click') {
     // actionElement[0].actions[3].text.content = "对话历史已清空";  //改变状态是已赞
     // actionElement[0].actions[3].value.clear = "cancel";
