@@ -213,8 +213,8 @@ const sendSnSMesage = async ({ larkclient, ...props }) => {
         receive_id_type: 'chat_id',
       },
       data: {
-        receive_id: open_chat_id,
-        content: JSON.stringify({ text: `<at user_id="${user_id}"></at> Internal error` }),
+        receive_id: props.open_chat_id,
+        content: JSON.stringify({ text: `<at user_id="${props.user_id}"></at> Internal error` }),
         msg_type: 'text',
       },
     });
@@ -226,10 +226,13 @@ export const handler = async (event) => {
   // console.log(event);
   console.log(event.body);
   const {lark_clients_map,lark_tenants_map,lark_tokens_map} = initLarkClients();
+  console.log(lark_tenants_map);
+  console.log(lark_tokens_map);
 
   //配置消息卡片的回调url为api_endponint/feedback
   if (event.httpMethod === 'POST' && event.resource === '/feedback') {
     if (data.type === 'url_verification' && data.token in lark_tokens_map) {
+      console.log('url_verification pass');
       return {
         statusCode: 200,
         body: JSON.stringify({
