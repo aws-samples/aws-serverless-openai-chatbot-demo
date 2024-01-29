@@ -81,7 +81,9 @@ export class CdkstackStack extends Stack {
         LARK_CONFIG:process.env.LARK_CONFIG,
         LARK_TENANT_NAMES:process.env.LARK_TENANT_NAMES,
         SYSTEM_ROLES:process.env.SYSTEM_ROLES,
-        SYSTEM_PRMOPTS:process.env.SYSTEM_PRMOPTS
+        SYSTEM_PRMOPTS:process.env.SYSTEM_PRMOPTS,
+        refuse_strategy:process.env.refuse_strategy,
+        refuse_answer:process.env.refuse_answer,
         // queueUrl:queue.queueUrl,
       },
       runtime: Runtime.NODEJS_18_X,
