@@ -39,7 +39,7 @@ export class CdkstackStack extends Stack {
       // tableName: process.env.DB_TABLE,
       removalPolicy: RemovalPolicy.DESTROY, // NOT recommended for production code
     });
-    // addAutoScalingDDb(dynamoTable);
+    addAutoScalingDDb(dynamoTable);
 
     // Create sns Topic
     const snsTopic = new Topic(this, 'Topic', {
