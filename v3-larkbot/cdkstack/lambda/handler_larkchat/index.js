@@ -113,7 +113,7 @@ async function uploadS3(bucket, key, blob) {
   return "";
 }
 
-async function getLarkfile(message_id, filekey, type) {
+async function getLarkfile(larkclient,message_id, filekey, type) {
   let resp;
   try {
     resp = await larkclient.im.messageResource.get({
@@ -537,7 +537,7 @@ export const handler = async (event) => {
     textmsg = msg.text.replace(/@_user\w+\s?/gm, ""); //去除群里的@消息的前缀
   } else if (msg_type === "image") {
     imagekey = msg.image_key;
-    const file = await getLarkfile(body.message_id, imagekey, msg_type);
+    const file = await getLarkfile(lark_client,body.message_id, imagekey, msg_type);
     console.log("resp:", file);
     const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
     await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
@@ -546,7 +546,7 @@ export const handler = async (event) => {
   } else if (msg_type === "audio") {
     const file_key = msg.file_key;
     const duration = msg.duration;
-    const file = await getLarkfile(body.message_id, file_key, msg_type);
+    const file = await getLarkfile(lark_client,body.message_id, file_key, msg_type);
     await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, `duration ${duration}`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
