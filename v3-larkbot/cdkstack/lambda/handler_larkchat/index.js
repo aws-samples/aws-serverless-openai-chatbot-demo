@@ -14,11 +14,13 @@ import {
 } from "@aws-sdk/client-s3";
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import * as axios from "axios";
-import { SQSClient, DeleteMessageCommand } from "@aws-sdk/client-sqs";
+import { Upload } from "@aws-sdk/lib-storage";
+
 
 const FormData = require('form-data');
 const crypto = require('crypto');
 const cheerio = require('cheerio');
+import * as fs from 'fs';
 
 const MAX_SEQ = 10;
 const dbclient = new DynamoDBClient();
@@ -92,10 +94,10 @@ async function extractURLContent(url) {
 const s3Client = new S3Client();
 const dynamodb_tb = process.env.DB_TABLE;
 
-
-async function uploadS3(bucket, key, blob) {
+//upload a local file to s3 bucket
+async function uploadS3(bucket, key, filename) {
   const input = {
-    Body: blob,
+    Body: fs.createReadStream(filename),
     Bucket: bucket,
     Key: "image/" + key,
   };
@@ -464,6 +466,11 @@ function replaceImagesLinksInMd(markdownText) {
   return replacedText;
 }
 
+//write a node js function read a image file and convert to base64
+function  base64_encode(file) {
+  let bitmap = fs.readFileSync(file);
+  return new Buffer.from(bitmap).toString('base64');
+}  
 
 //下载图片文件并上传， lark image.create接口有问题，换成axios
 // async function downloadImage(url){
@@ -537,10 +544,14 @@ export const handler = async (event) => {
     textmsg = msg.text.replace(/@_user\w+\s?/gm, ""); //去除群里的@消息的前缀
   } else if (msg_type === "image") {
     imagekey = msg.image_key;
-    const file = await getLarkfile(lark_client,body.message_id, imagekey, msg_type);
-    console.log("resp:", file);
-    const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, file);
-    await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, `upload ${url}`, open_id, chat_type, message_id, session_id);
+    const resp = await getLarkfile(lark_client,body.message_id, imagekey, msg_type);
+    const tempFileName = `/tmp/${Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)}.png`
+    await resp.writeFile(tempFileName)
+    const base64String = base64_encode(tempFileName);
+    console.log("base64String:", base64String);
+    const url = await uploadS3(process.env.UPLOAD_BUCKET, imagekey, tempFileName);
+    await fs.promises.unlink(tempFileName);
+    await sendLarkMessage(app_id, app_secret, lark_client, open_chat_id, `upload success${url}`, open_id, chat_type, message_id, session_id);
     // await deleteSqsMessage(event);
     return { statusCode: 200 };
   } else if (msg_type === "audio") {
