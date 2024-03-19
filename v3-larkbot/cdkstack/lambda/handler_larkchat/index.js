@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: MIT-0
 
 import * as lark from '@larksuiteoapi/node-sdk';
-import { DynamoDBClient, GetItemCommand,PutItemCommand } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient,
+  UpdateTimeToLiveCommand,
+  GetItemCommand, 
+  PutItemCommand } from "@aws-sdk/client-dynamodb";
 import {
   AccessDeniedException,
   BedrockRuntimeClient,
@@ -64,7 +67,7 @@ export const invokeClaude3 = async (messages) => {
       secretAccessKey: aws_sk,
     },
   });
-  console.log(aws_claude_system_prompt)
+  // console.log(aws_claude_system_prompt)
   const payload = {
     anthropic_version: "bedrock-2023-05-31",
     system: aws_claude_system_prompt,
@@ -136,7 +139,7 @@ const _saveDynamoDb = async (table_name,item) =>{
       console.log("Items saved success",results);
   } catch (err) {
       console.error(err);
-}
+  }
 }
 
 // message table api
@@ -145,11 +148,14 @@ const queryDynamoDb = async (key) => {
   return _queryDynamoDb(dynamodb_tb, queryKey);
 };
 const saveDynamoDb = async (chat_id,messages) =>{
-  const currentTimestamp = Date.now();
-  const oneDayLater = currentTimestamp + (24 * 60 * 60 * 1000);
+  console.log("========saveDynamoDb==========")
+  const oneDayLater = Math.floor(Date.now()/1000) + (24 * 60 * 60 );
   const item = {
     chat_id:{S:chat_id}, 
-    messages:{S:JSON.stringify(messages)}};
+    messages:{S:JSON.stringify(messages)},
+    expire_at:{N: oneDayLater.toString()}
+  }
+  console.log(item)
   _saveDynamoDb(dynamodb_tb, item);
 }
 
@@ -159,11 +165,11 @@ const queryStatsDDB = async (key) => {
   return _queryDynamoDb(dynamodb_tb_stats, queryKey);
 };
 const saveStatsDDB = async (key, input_tokens, output_tokens) =>{
+  console.log("=====saveStatsDDB=====")
   const token_counter = {input_tokens:input_tokens, output_tokens: output_tokens};
   const item = {
     app_id: { S: key }, 
     tokens: {S: JSON.stringify(token_counter)}};
-  console.log("=====saveStatsDDB=====")
   console.log(item)
   _saveDynamoDb(dynamodb_tb_stats, item);
 }
