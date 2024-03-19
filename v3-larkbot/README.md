@@ -2,6 +2,10 @@
 Build a ChatGpt bot in Lark (飞书) using OpenAI's gpt-3.5-turbo model. The backend is hosted on AWS's serveless, and it is free.
 For steps in Lark side, please refer to [develop-a-bot-in-5-minute](https://open.feishu.cn/document/home/develop-a-bot-in-5-minutes/create-an-app)
 
+## Architecture
+
+![lark-claude3](../assets/lark-claude3-archi.png)
+
 ## Steps   
 1. create a `.env` file in folder `cdkstack/`,  add the your actual variables. 
 ```  
@@ -42,4 +46,12 @@ For example,
 Use this URL as the callback url for lark message event.  
 
 1. After all dones. congrats  
-![img_v2_a6531f9a-0070-41e7-930b-ef97c539ff3g](https://user-images.githubusercontent.com/19160090/222913097-da679fcc-c1a6-4483-9c4d-83560d818e9b.jpg)
+![lark-claude3](../assets/lark-claude3-screenshot.png)
+
+##  Features:
+
+* cdk部署整套架构
+* 飞书+claude3支持文字和图片交流
+* 内置命令 /rs 清空历史对话 /tc token统计
+* 控制了单个chat_id最大对话数，防止api abuse
+* 历史对话有效期默认24小时
