@@ -193,7 +193,7 @@ const sendLarkMessage = async (open_chat_id,content) =>{
   });
 }
 
-const getLarkfile = async(message_id, filekey, type) =>{
+const getLarkfile = async(message_id, filekey, type, desc) =>{
   let resp;
   const tempFileName = `/tmp/${Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)}.png`
   try{
@@ -218,7 +218,7 @@ const getLarkfile = async(message_id, filekey, type) =>{
           data: base64String,
           }
       },
-      {type: "text", text: aws_claude_img_desc_prompt}]; 
+      {type: "text", text: desc}]; 
       return {role:'user', content:contents};
 
   } catch (err) {
@@ -237,12 +237,17 @@ export const handler = async (event) => {
 
   let msg;
   let current_msg;
+  let system_prompt;
   if (msg_type == 'text'){
     msg = body.msg;
     current_msg = {role:'user', content:msg}
   } else if (msg_type == 'image') {
     const mage_key = body.msg;
-    current_msg = await getLarkfile(message_id, mage_key, msg_type);
+    let desc = aws_claude_img_desc_prompt;
+    system_prompt = await queryDynamoDb(open_chat_id, "system_prompt");
+    if (!isEmpty(system_prompt))
+      desc = system_prompt;
+    current_msg = await getLarkfile(message_id, mage_key, msg_type, desc);
   } else {
     await sendLarkMessage(open_chat_id, "'${msg_type}' format is unsupported.");
     return { statusCode: 200,}
@@ -252,7 +257,6 @@ export const handler = async (event) => {
  
   let messages;
   let prev_msgs;
-  let system_prompt;
   //send command to clear the messages
   if (msg === start_command){ // /rs
     await saveDynamoDb(open_chat_id, null, null);
@@ -262,7 +266,7 @@ export const handler = async (event) => {
     const tokens = await queryStatsDDB(process.env.LARK_APPID);
     await sendLarkMessage(open_chat_id, JSON.stringify(tokens));
     return  { statusCode: 200}
-  } else if (msg.startsWith('/sp ')){ // /sp
+  } else if (!isEmpty(msg) && msg.startsWith('/sp ')){ // /sp
     const match = msg.match(/\/sp \s*(.*)/);
     if (match) {
       prev_msgs = await queryDynamoDb(open_chat_id, "messages");
