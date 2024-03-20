@@ -52,6 +52,8 @@ Use this URL as the callback url for lark message event.
 
 * cdk部署整套架构
 * 飞书+claude3支持文字和图片交流
-* 内置命令 /rs 清空历史对话 /tc token统计
+* 内置命令 /rs 清空历史对话
+* 内置命令 /tc token统计
+* 内置命令 /sp 系统提示词
 * 控制了单个chat_id最大对话数，防止api abuse
 * 历史对话有效期默认24小时

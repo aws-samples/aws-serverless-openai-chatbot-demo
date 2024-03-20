@@ -3,7 +3,7 @@
 
 import * as lark from '@larksuiteoapi/node-sdk';
 import { DynamoDBClient,
-  UpdateTimeToLiveCommand,
+  UpdateCommand,
   GetItemCommand, 
   PutItemCommand } from "@aws-sdk/client-dynamodb";
 import {
@@ -19,6 +19,7 @@ const dbclient = new DynamoDBClient();
 
 const start_command = process.env.START_CMD;
 const token_count_command = '/tc';
+const prompt_template_command = '/sp';
 
 const MAX_SEQ = parseInt(process.env.AWS_CLAUDE_MAX_SEQ)*2+1;
 const aws_ak = process.env.AWS_AK
@@ -59,7 +60,7 @@ function isEmpty(value) {
   return false;
 }
 
-export const invokeClaude3 = async (messages) => {
+export const invokeClaude3 = async (messages, system_prompt) => {
   const client = new BedrockRuntimeClient({ 
     region: aws_region_code,
     credentials: {
@@ -67,10 +68,10 @@ export const invokeClaude3 = async (messages) => {
       secretAccessKey: aws_sk,
     },
   });
-  // console.log(aws_claude_system_prompt)
+
   const payload = {
     anthropic_version: "bedrock-2023-05-31",
-    system: aws_claude_system_prompt,
+    system: system_prompt,
     messages: messages,
     temperature: 0.7,
     top_p: 0.9,
@@ -111,17 +112,12 @@ const _queryDynamoDb = async (table_name, key) => {
   const command = new GetItemCommand(params);
   try {
     const results = await dbclient.send(command);
+    console.log("============_queryDynamoDb============")
+    console.log(results)
     if (!results.Item) {
       return null;
-    } else {
-      console.log(results.Item);
-      if ('messages' in results.Item){
-        return JSON.parse(results.Item.messages.S);
-      }else if ('tokens' in results.Item){
-        return JSON.parse(results.Item.tokens.S);
-      }
-        return null;
-    }
+    } 
+    return results;
   } catch (err) {
     console.error(err);
     return null;
@@ -140,19 +136,25 @@ const _saveDynamoDb = async (table_name,item) =>{
   } catch (err) {
       console.error(err);
   }
-}
+};
 
 // message table api
-const queryDynamoDb = async (key) => {
+const queryDynamoDb = async (key, target) => {
   const queryKey = { chat_id: { S: key } };
-  return _queryDynamoDb(dynamodb_tb, queryKey);
+  const results = await _queryDynamoDb(dynamodb_tb, queryKey);
+  if (target in results.Item){
+    return JSON.parse(results.Item[target].S);
+  }
+  return null;
+  // return _queryDynamoDb(dynamodb_tb, queryKey);
 };
-const saveDynamoDb = async (chat_id,messages) =>{
+const saveDynamoDb = async (chat_id, messages, system_prompt) =>{
   console.log("========saveDynamoDb==========")
   const oneDayLater = Math.floor(Date.now()/1000) + (24 * 60 * 60 );
   const item = {
     chat_id:{S:chat_id}, 
     messages:{S:JSON.stringify(messages)},
+    system_prompt:{S: JSON.stringify(system_prompt)},
     expire_at:{N: oneDayLater.toString()}
   }
   console.log(item)
@@ -162,7 +164,11 @@ const saveDynamoDb = async (chat_id,messages) =>{
 // system table api
 const queryStatsDDB = async (key) => {
   const queryKey = { app_id: { S: key } };
-  return _queryDynamoDb(dynamodb_tb_stats, queryKey);
+  const results = await _queryDynamoDb(dynamodb_tb_stats, queryKey);
+  if ('tokens' in results.Item){
+    return JSON.parse(results.Item.tokens.S);
+  }
+  return null;
 };
 const saveStatsDDB = async (key, input_tokens, output_tokens) =>{
   console.log("=====saveStatsDDB=====")
@@ -246,17 +252,29 @@ export const handler = async (event) => {
  
   let messages;
   let prev_msgs;
+  let system_prompt;
   //send command to clear the messages
-  if (msg === start_command){
-    await saveDynamoDb(open_chat_id,null);
-    await sendLarkMessage(open_chat_id, "Flushed, Let's chat!");
+  if (msg === start_command){ // /rs
+    await saveDynamoDb(open_chat_id, null, null);
+    await sendLarkMessage(open_chat_id, "Flushed! Let's chat!");
     return  { statusCode: 200}
-  } else if (msg === token_count_command){
+  } else if (msg === token_count_command){ // /tc
     const tokens = await queryStatsDDB(process.env.LARK_APPID);
     await sendLarkMessage(open_chat_id, JSON.stringify(tokens));
     return  { statusCode: 200}
+  } else if (msg.startsWith('/sp ')){ // /sp
+    const match = msg.match(/\/sp \s*(.*)/);
+    if (match) {
+      prev_msgs = await queryDynamoDb(open_chat_id, "messages");
+
+      const sytem_prompt = match[1]; 
+      await saveDynamoDb(open_chat_id, prev_msgs, sytem_prompt.trim());
+      await sendLarkMessage(open_chat_id, "System prompt updated! Let's chat!");
+    }
+    return  { statusCode: 200}
   } else{
-    prev_msgs = await queryDynamoDb(open_chat_id);
+    prev_msgs = await queryDynamoDb(open_chat_id, "messages");
+    system_prompt = await queryDynamoDb(open_chat_id, "system_prompt");
   }
   //append the previous msgs
   if (prev_msgs) { 
@@ -277,18 +295,21 @@ export const handler = async (event) => {
   let message;    
   let response;   
   try {
+    let sp = aws_claude_system_prompt;
+    if (!isEmpty(system_prompt))
+      sp = system_prompt;
 
-    response = await invokeClaude3(messages)
+    console.log("========system_prompt=========")
+    console.log(sp)
+    response = await invokeClaude3(messages, sp)
     text= response.content[0];
     message={role: 'assistant', content: text.text.trimStart()}
 
     messages = [...messages, message];
-    await saveDynamoDb(open_chat_id, messages)
+    await saveDynamoDb(open_chat_id, messages, sp)
     console.log(message);
     await sendLarkMessage(open_chat_id, message.content);
-
-    console.log("========tokens counter=========")
-    console.log(response.usage)
+ 
     const input_tokens = response.usage.input_tokens;
     const output_tokens = response.usage.output_tokens;
     let tokens = await queryStatsDDB(process.env.LARK_APPID);
