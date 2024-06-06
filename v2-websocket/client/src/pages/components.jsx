@@ -15,7 +15,7 @@ import Divider from '@mui/material/Divider';
 import {Stack,FormControl,InputLabel,Select,MenuItem,Slider} from '@mui/material';
 
 const drawerWidth = 300;
-const models = ['gpt-3.5-turbo','gpt-3.5-turbo-0301'];//['text-davinci-003','code-davinci-002'];
+const models = ['gpt-4o','gpt-4-turbo','gpt-3.5-turbo','gpt-3.5-turbo-0301'];//['text-davinci-003','code-davinci-002'];
 
 export const modelParamsCtx = React.createContext();
 export const useModelParams =()=>{

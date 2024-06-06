@@ -66,6 +66,7 @@ export class DeployJsStack extends Stack {
         OPENAI_API_KEY: process.env.OPENAI_API_KEY,
         START_CMD: process.env.START_CMD,
         SNS_TOPIC_ARN: snsTopic.topicArn,
+        TOKEN_KEY: process.env.TOKEN_KEY,
       },
       runtime: Runtime.NODEJS_18_X,
     };
@@ -131,7 +132,7 @@ export class DeployJsStack extends Stack {
     });
 
     // Grant the Lambda function read access to the DynamoDB table
-    dynamoTable.grantReadWriteData(lambda_login);
+    dynamoTable.grantReadData(lambda_login);
 
     //Add the lambda subscription
     snsTopic.addSubscription(new subscriptions.LambdaSubscription(lambda_chat));
@@ -180,7 +181,7 @@ export class DeployJsStack extends Stack {
     webSocketApi.addRoute("sendprompt", {
       integration: new WebSocketLambdaIntegration(
         "SendMessageIntegration",
-        lambda_chat
+        lambda_handle_chat
       ),
     });
 
